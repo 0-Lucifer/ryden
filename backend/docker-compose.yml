@@ -1,0 +1,256 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ryden-postgres
+    environment:
+      POSTGRES_USER: ryden
+      POSTGRES_PASSWORD: ryden123
+      POSTGRES_DB: ryden_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - ryden-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: ryden-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ryden
+      MONGO_INITDB_ROOT_PASSWORD: ryden123
+      MONGO_INITDB_DATABASE: ryden_chat
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ryden-network
+
+  # Redis Cache & Location Store
+  redis:
+    image: redis:7-alpine
+    container_name: ryden-redis
+    command: redis-server --appendonly yes --requirepass ryden123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ryden-network
+
+  # API Gateway
+  gateway:
+    build: ./gateway
+    container_name: ryden-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      - RIDE_SERVICE_URL=http://ride-service:3003
+      - LOCATION_SERVICE_URL=http://location-service:3004
+      - PAYMENT_SERVICE_URL=http://payment-service:3005
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3006
+      - CHAT_SERVICE_URL=http://chat-service:3007
+      - RATING_SERVICE_URL=http://rating-service:3008
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    networks:
+      - ryden-network
+
+  # Auth Service (Port 3001)
+  auth-service:
+    build: ./services/auth
+    container_name: ryden-auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
+      - REDIS_URL=redis://:ryden123@redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - JWT_EXPIRES_IN=1h
+      - REFRESH_TOKEN_EXPIRES_IN=7d
+      - TWILIO_ACCOUNT_SID=your_twilio_sid
+      - TWILIO_AUTH_TOKEN=your_twilio_token
+      - TWILIO_PHONE_NUMBER=+1234567890
+      - GOOGLE_CLIENT_ID=your_google_client_id
+      - FACEBOOK_APP_ID=your_facebook_app_id
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ryden-network
+
+  # User Service (Port 3002)
+  user-service:
+    build: ./services/user
+    container_name: ryden-user-service
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
+      - REDIS_URL=redis://:ryden123@redis:6379
+      - AWS_S3_BUCKET=ryden-documents
+      - AWS_ACCESS_KEY_ID=your_aws_key
+      - AWS_SECRET_ACCESS_KEY=your_aws_secret
+      - AWS_REGION=ap-south-1
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ryden-network
+
+  # Ride Service (Port 3003)
+  ride-service:
+    build: ./services/ride
+    container_name: ryden-ride-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
+      - REDIS_URL=redis://:ryden123@redis:6379
+      - LOCATION_SERVICE_URL=http://location-service:3004
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3006
+      - BASE_FARE=50
+      - PER_KM_RATE=15
+      - PER_MINUTE_RATE=2
+      - SURGE_MULTIPLIER=1.5
+      - CANCELLATION_FEE=20
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ryden-network
+
+  # Location Service (Port 3004)
+  location-service:
+    build: ./services/location
+    container_name: ryden-location-service
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - REDIS_URL=redis://:ryden123@redis:6379
+      - GOOGLE_MAPS_API_KEY=your_google_maps_key
+      - NSU_CAMPUS_LAT=23.8103
+      - NSU_CAMPUS_LNG=90.4125
+      - GEOFENCE_RADIUS=5000
+      - LOCATION_UPDATE_INTERVAL=5000
+    depends_on:
+      - redis
+    networks:
+      - ryden-network
+
+  # Payment Service (Port 3005)
+  payment-service:
+    build: ./services/payment
+    container_name: ryden-payment-service
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
+      - BKASH_APP_KEY=your_bkash_app_key
+      - BKASH_APP_SECRET=your_bkash_app_secret
+      - BKASH_USERNAME=your_bkash_username
+      - BKASH_PASSWORD=your_bkash_password
+      - NAGAD_MERCHANT_ID=your_nagad_merchant_id
+      - NAGAD_MERCHANT_KEY=your_nagad_merchant_key
+      - ROCKET_MERCHANT_ID=your_rocket_merchant_id
+      - SSLCOMMERZ_STORE_ID=your_sslcommerz_store_id
+      - SSLCOMMERZ_STORE_PASSWORD=your_sslcommerz_password
+      - PAYMENT_SUCCESS_URL=http://localhost:3000/api/payments/success
+      - PAYMENT_CANCEL_URL=http://localhost:3000/api/payments/cancel
+      - VAT_PERCENTAGE=5
+    depends_on:
+      - postgres
+    networks:
+      - ryden-network
+
+  # Notification Service (Port 3006)
+  notification-service:
+    build: ./services/notification
+    container_name: ryden-notification-service
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - MONGODB_URL=mongodb://ryden:ryden123@mongodb:27017/ryden_notifications?authSource=admin
+      - FIREBASE_PROJECT_ID=your_firebase_project_id
+      - FIREBASE_PRIVATE_KEY=your_firebase_private_key
+      - FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+      - TWILIO_ACCOUNT_SID=your_twilio_sid
+      - TWILIO_AUTH_TOKEN=your_twilio_token
+      - TWILIO_PHONE_NUMBER=+1234567890
+      - SENDGRID_API_KEY=your_sendgrid_key
+      - SENDGRID_FROM_EMAIL=noreply@ryden.bd
+    depends_on:
+      - mongodb
+    networks:
+      - ryden-network
+
+  # Chat Service (Port 3007)
+  chat-service:
+    build: ./services/chat
+    container_name: ryden-chat-service
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - MONGODB_URL=mongodb://ryden:ryden123@mongodb:27017/ryden_chat?authSource=admin
+      - REDIS_URL=redis://:ryden123@redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - MESSAGE_RETENTION_HOURS=24
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - ryden-network
+
+  # Rating Service (Port 3008)
+  rating-service:
+    build: ./services/rating
+    container_name: ryden-rating-service
+    ports:
+      - "3008:3008"
+    environment:
+      - NODE_ENV=development
+      - PORT=3008
+      - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
+      - USER_SERVICE_URL=http://user-service:3002
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3006
+      - LOW_RATING_THRESHOLD=3.0
+    depends_on:
+      - postgres
+    networks:
+      - ryden-network
+
+networks:
+  ryden-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
