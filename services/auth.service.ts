@@ -4,13 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from './api.service';
 
 export interface RegisterData {
-  name: string;
   email: string;
-  phone: string;
   password: string;
-  studentId?: string;
-  university: string;
+  phone: string;
+  firstName: string;
+  lastName: string;
   role: 'rider' | 'driver';
+  university?: string;
+  studentId?: string;
 }
 
 export interface LoginData {
@@ -37,15 +38,16 @@ export interface AuthResponse {
 
 export interface UserData {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   studentId?: string;
-  university: string;
+  university?: string;
   role: 'rider' | 'driver' | 'both';
   isVerified: boolean;
-  rating: number;
-  totalRides: number;
+  rating?: number;
+  totalRides?: number;
   profilePicture?: string;
   emergencyContact?: {
     name: string;
@@ -57,13 +59,29 @@ class AuthService {
   // Register new user
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
-      const response = await ApiService.post<AuthResponse>(
+      console.log('[AuthService] Registering with data:', { ...data, password: '***' });
+      const response = await ApiService.post<any>(
         `${API_CONFIG.SERVICES.AUTH}/register`,
         data
       );
       
-      if (response.success && response.data.tokens) {
-        await this.saveAuthData(response.data);
+      console.log('[AuthService] Registration response:', response);
+      
+      if (response.success && response.data.accessToken) {
+        // Backend returns tokens directly in data, normalize to expected format
+        const normalizedResponse = {
+          ...response,
+          data: {
+            user: response.data.user,
+            tokens: {
+              accessToken: response.data.accessToken,
+              refreshToken: response.data.refreshToken
+            }
+          }
+        };
+        await this.saveAuthData(normalizedResponse.data);
+        console.log('[AuthService] Registration successful, tokens saved');
+        return normalizedResponse;
       }
       
       return response;
@@ -76,13 +94,25 @@ class AuthService {
   // Login with email/phone and password
   async login(data: LoginData): Promise<AuthResponse> {
     try {
-      const response = await ApiService.post<AuthResponse>(
+      const response = await ApiService.post<any>(
         `${API_CONFIG.SERVICES.AUTH}/login`,
         data
       );
       
-      if (response.success && response.data.tokens) {
-        await this.saveAuthData(response.data);
+      if (response.success && response.data.accessToken) {
+        // Backend returns tokens directly in data, normalize to expected format
+        const normalizedResponse = {
+          ...response,
+          data: {
+            user: response.data.user,
+            tokens: {
+              accessToken: response.data.accessToken,
+              refreshToken: response.data.refreshToken
+            }
+          }
+        };
+        await this.saveAuthData(normalizedResponse.data);
+        return normalizedResponse;
       }
       
       return response;

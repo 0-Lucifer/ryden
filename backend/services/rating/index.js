@@ -1,8 +1,8 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-const { pgPool } = require('../../shared/database');
-const { requestLogger, errorHandler, authenticateToken } = require('../../shared/middleware');
+const { pgPool } = require('./shared/database');
+const { requestLogger, errorHandler, authenticateToken } = require('./shared/middleware');
 const ratingRoutes = require('./routes/rating.routes');
 
 const app = express();
@@ -17,3 +17,4 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3008;
 (async () => { try { await pgPool.query('SELECT 1'); app.listen(PORT, ()=> console.log(`🚀 Rating Service running on ${PORT}`)); } catch(e){ console.error('Failed to start Rating Service', e); process.exit(1);} })();
+

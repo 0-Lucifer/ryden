@@ -1,14 +1,14 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { pgPool } = require('../../../shared/database');
-const { redisClient } = require('../../../shared/database');
+const { pgPool } = require('../shared/database');
+const { redisClient } = require('../shared/database');
 const {
   generateOTP,
   generateReferenceId,
   formatPhoneNumber,
   isValidBDPhone,
-} = require('../../../shared/utils');
+} = require('../shared/utils');
 const twilioService = require('../services/twilio.service');
 
 // Validation schemas
@@ -652,3 +652,4 @@ function generateRefreshToken(user) {
     { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d' }
   );
 }
+

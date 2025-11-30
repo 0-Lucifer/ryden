@@ -2,11 +2,16 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy shared folder at app root level
+COPY ./shared ./shared
+
+# Copy service package.json
+COPY ./services/auth/package*.json ./
 
 RUN npm install --production
 
-COPY . .
+# Copy all service files maintaining structure
+COPY ./services/auth/ ./
 
 EXPOSE 3001
 

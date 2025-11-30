@@ -1,19 +1,54 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { register, isLoading } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSignup = () => {
-    // TODO: Implement actual signup logic
-    router.push('/(tabs)');
+  const handleSignup = async () => {
+    console.log('[Signup] Starting signup process');
+    
+    // Validate inputs
+    if (!email || !phone || !name || !password) {
+      console.log('[Signup] Validation failed - missing fields');
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    // Split name into firstName and lastName
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || nameParts[0];
+
+    // Ensure phone has country code
+    const formattedPhone = phone.startsWith('+') ? phone : `+880${phone.replace(/^0/, '')}`;
+
+    console.log('[Signup] Prepared data:', { email, phone: formattedPhone, firstName, lastName });
+
+    try {
+      console.log('[Signup] Calling register...');
+      await register({
+        email: email.trim(),
+        password,
+        phone: formattedPhone,
+        firstName,
+        lastName,
+        role: 'rider'
+      });
+      console.log('[Signup] Registration successful!');
+      // Navigation will be handled by route protection in _layout.tsx
+    } catch (error: any) {
+      console.error('[Signup] Registration failed:', error);
+      Alert.alert('Signup Failed', error.message || 'An error occurred during signup');
+    }
   };
 
   return (
@@ -99,10 +134,15 @@ export default function SignupScreen() {
           <TouchableOpacity 
             className="bg-indigo-600 py-5 rounded-full mt-8 shadow-lg"
             onPress={handleSignup}
+            disabled={isLoading}
           >
-            <Text className="text-white text-center text-lg font-bold">
-              Create Account
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white text-center text-lg font-bold">
+                Create Account
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Sign In Link */}

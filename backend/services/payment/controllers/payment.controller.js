@@ -1,4 +1,4 @@
-const { pgPool } = require('../../../shared/database');
+const { pgPool } = require('./../../shared/database');
 
 exports.getMethods = async (req,res,next)=>{ try { res.json({ success:true, data:['bkash','nagad','rocket','sslcommerz','cash']}); } catch(e){ next(e);} };
 
@@ -16,3 +16,4 @@ exports.requestPayout = async (req,res,next)=>{ try { const { amount, method } =
 exports.applyPromo = async (req,res,next)=>{ try { const { code, rideId } = req.body; res.json({ success:true, data:{ code, discount:20, rideId }}); } catch(e){ next(e);} };
 
 exports.transactionHistory = async (req,res,next)=>{ try { res.json({ success:true, data:{ transactions:[] }}); } catch(e){ next(e);} };
+

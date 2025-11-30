@@ -3,8 +3,8 @@ const helmet = require('helmet');
 const cors = require('cors');
 const http = require('http');
 const jwt = require('jsonwebtoken');
-const { connectMongoDB } = require('../../shared/database');
-const { requestLogger, errorHandler, authenticateToken } = require('../../shared/middleware');
+const { connectMongoDB } = require('./shared/database');
+const { requestLogger, errorHandler, authenticateToken } = require('./shared/middleware');
 const chatRoutes = require('./routes/chat.routes');
 const mongoose = require('mongoose');
 
@@ -48,3 +48,4 @@ io.on('connection', (socket)=>{
 
 const PORT = process.env.PORT || 3007;
 (async () => { try { await connectMongoDB(); server.listen(PORT, ()=> console.log(`🚀 Chat Service running on ${PORT}`)); } catch(e){ console.error('Failed to start Chat Service', e); process.exit(1);} })();
+

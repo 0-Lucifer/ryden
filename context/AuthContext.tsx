@@ -30,14 +30,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const isAuth = await AuthService.isAuthenticated();
       if (isAuth) {
         const userData = await AuthService.getCurrentUser();
-        setUser(userData);
-        setIsAuthenticated(true);
-        
-        // Connect to WebSocket for real-time updates
-        await WebSocketService.connect();
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+          
+          // Connect to WebSocket for real-time updates (don't block on this)
+          WebSocketService.connect().catch(err => 
+            console.warn('[AuthContext] WebSocket connection failed:', err)
+          );
+        } else {
+          // Token exists but no user data - clear everything
+          console.log('[AuthContext] Token exists but no user data, clearing auth');
+          await AuthService.logout();
+          setIsAuthenticated(false);
+          setUser(null);
+        }
       }
     } catch (error) {
       console.error('[AuthContext] Error checking auth status:', error);
+      // Clear auth on error
+      setIsAuthenticated(false);
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -52,8 +65,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(response.data.user);
         setIsAuthenticated(true);
         
-        // Connect to WebSocket
-        await WebSocketService.connect();
+        // Connect to WebSocket (don't block on this)
+        WebSocketService.connect().catch(err => 
+          console.warn('[AuthContext] WebSocket connection failed:', err)
+        );
       }
     } catch (error) {
       console.error('[AuthContext] Login error:', error);
@@ -72,8 +87,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(response.data.user);
         setIsAuthenticated(true);
         
-        // Connect to WebSocket
-        await WebSocketService.connect();
+        // Connect to WebSocket (don't block on this)
+        WebSocketService.connect().catch(err => 
+          console.warn('[AuthContext] WebSocket connection failed:', err)
+        );
       }
     } catch (error) {
       console.error('[AuthContext] Registration error:', error);

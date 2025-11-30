@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('../controllers/ride.controller');
+const ctrl = require('./controllers/ride.controller');
 
 router.post('/request', ctrl.requestRide);
 router.post('/calculate-fare', ctrl.calculateFare);
@@ -14,3 +14,4 @@ router.get('/:id', ctrl.getRideDetails);
 router.post('/:id/share', ctrl.shareRide);
 
 module.exports = router;
+

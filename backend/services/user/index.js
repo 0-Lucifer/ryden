@@ -1,8 +1,8 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-const { pgPool, connectRedis, redisClient } = require('../../shared/database');
-const { requestLogger, errorHandler, authenticateToken } = require('../../shared/middleware');
+const { pgPool, connectRedis, redisClient } = require('./shared/database');
+const { requestLogger, errorHandler, authenticateToken } = require('./shared/middleware');
 const userRoutes = require('./routes/user.routes');
 
 const app = express();
@@ -25,3 +25,4 @@ const PORT = process.env.PORT || 3002;
     console.error('Failed to start User Service', e); process.exit(1);
   }
 })();
+

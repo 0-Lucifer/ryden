@@ -46,7 +46,9 @@ services:
 
   # API Gateway
   gateway:
-    build: ./gateway
+    build:
+      context: .
+      dockerfile: ./gateway/Dockerfile
     container_name: ryden-gateway
     ports:
       - "3000:3000"
@@ -71,7 +73,9 @@ services:
 
   # Auth Service (Port 3001)
   auth-service:
-    build: ./services/auth
+    build:
+      context: .
+      dockerfile: ./services/auth/Dockerfile
     container_name: ryden-auth-service
     ports:
       - "3001:3001"
@@ -83,8 +87,8 @@ services:
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - JWT_EXPIRES_IN=1h
       - REFRESH_TOKEN_EXPIRES_IN=7d
-      - TWILIO_ACCOUNT_SID=your_twilio_sid
-      - TWILIO_AUTH_TOKEN=your_twilio_token
+      - TWILIO_ACCOUNT_SID=your_twilio_account_sid
+      - TWILIO_AUTH_TOKEN=your_twilio_auth_token
       - TWILIO_PHONE_NUMBER=+1234567890
       - GOOGLE_CLIENT_ID=your_google_client_id
       - FACEBOOK_APP_ID=your_facebook_app_id
@@ -96,7 +100,9 @@ services:
 
   # User Service (Port 3002)
   user-service:
-    build: ./services/user
+    build:
+      context: .
+      dockerfile: ./services/user/Dockerfile
     container_name: ryden-user-service
     ports:
       - "3002:3002"
@@ -117,7 +123,9 @@ services:
 
   # Ride Service (Port 3003)
   ride-service:
-    build: ./services/ride
+    build:
+      context: .
+      dockerfile: ./services/ride/Dockerfile
     container_name: ryden-ride-service
     ports:
       - "3003:3003"
@@ -141,7 +149,9 @@ services:
 
   # Location Service (Port 3004)
   location-service:
-    build: ./services/location
+    build:
+      context: .
+      dockerfile: ./services/location/Dockerfile
     container_name: ryden-location-service
     ports:
       - "3004:3004"
@@ -161,7 +171,9 @@ services:
 
   # Payment Service (Port 3005)
   payment-service:
-    build: ./services/payment
+    build:
+      context: .
+      dockerfile: ./services/payment/Dockerfile
     container_name: ryden-payment-service
     ports:
       - "3005:3005"
@@ -188,7 +200,9 @@ services:
 
   # Notification Service (Port 3006)
   notification-service:
-    build: ./services/notification
+    build:
+      context: .
+      dockerfile: ./services/notification/Dockerfile
     container_name: ryden-notification-service
     ports:
       - "3006:3006"
@@ -211,7 +225,9 @@ services:
 
   # Chat Service (Port 3007)
   chat-service:
-    build: ./services/chat
+    build:
+      context: .
+      dockerfile: ./services/chat/Dockerfile
     container_name: ryden-chat-service
     ports:
       - "3007:3007"
@@ -230,7 +246,9 @@ services:
 
   # Rating Service (Port 3008)
   rating-service:
-    build: ./services/rating
+    build:
+      context: .
+      dockerfile: ./services/rating/Dockerfile
     container_name: ryden-rating-service
     ports:
       - "3008:3008"

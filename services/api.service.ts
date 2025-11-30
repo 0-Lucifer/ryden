@@ -47,10 +47,14 @@ class ApiService {
       async (error: AxiosError) => {
         if (error.response) {
           const status = error.response.status;
+          const url = error.config?.url || '';
           
-          // Handle 401 Unauthorized - Token expired
-          if (status === 401) {
+          // Handle 401 Unauthorized - Token expired (but not for login/register endpoints)
+          if (status === 401 && !url.includes('/login') && !url.includes('/register')) {
+            console.log('[API] Token expired, clearing auth data');
             await this.handleUnauthorized();
+          } else if (status === 401) {
+            console.log('[API] Authentication failed for', url);
           }
           
           // Handle 403 Forbidden

@@ -1,13 +1,37 @@
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const [notifications, setNotifications] = useState(true);
   const [locationSharing, setLocationSharing] = useState(true);
   const router = useRouter();
+  const { logout, isLoading } = useAuth();
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              router.replace('/welcome');
+            } catch (error) {
+              console.error('[Profile] Logout failed:', error);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const menuItems = [
     { icon: '👤', title: 'Personal Info', subtitle: 'Update your details', screen: '' },
@@ -168,9 +192,12 @@ export default function ProfileScreen() {
         <View className="px-5 py-5 pb-10">
           <TouchableOpacity 
             className="bg-red-600 py-5 rounded-full"
-            onPress={() => router.push('/welcome')}
+            onPress={handleLogout}
+            disabled={isLoading}
           >
-            <Text className="text-white text-center font-bold text-lg">🚪 Log Out</Text>
+            <Text className="text-white text-center font-bold text-lg">
+              {isLoading ? '🔄 Logging out...' : '🚪 Log Out'}
+            </Text>
           </TouchableOpacity>
         </View>
 

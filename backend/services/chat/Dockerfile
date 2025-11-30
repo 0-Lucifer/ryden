@@ -1,7 +1,8 @@
 FROM node:18-alpine
 WORKDIR /app
-COPY package*.json ./
+COPY ./shared ./shared
+COPY ./services/chat/package*.json ./
 RUN npm install --production
-COPY . .
+COPY ./services/chat .
 EXPOSE 3007
 CMD ["node", "index.js"]

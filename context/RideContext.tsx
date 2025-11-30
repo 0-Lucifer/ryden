@@ -90,7 +90,9 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
         WebSocketService.joinRide(ride.id);
       }
     } catch (error) {
-      console.error('[RideContext] Fetch active ride error:', error);
+      // Silently fail if ride service not available yet
+      console.warn('[RideContext] Ride service not available:', error);
+      setActiveRide(null);
     }
   };
 

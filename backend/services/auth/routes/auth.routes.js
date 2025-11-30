@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
-const { authenticateToken } = require('../../../shared/middleware');
+const { authenticateToken } = require('../shared/middleware');
 
 // Public routes
 router.post('/register', authController.register);
@@ -19,3 +19,4 @@ router.get('/me', authenticateToken, authController.getCurrentUser);
 router.post('/change-password', authenticateToken, authController.changePassword);
 
 module.exports = router;
+

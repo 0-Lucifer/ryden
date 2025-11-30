@@ -17,7 +17,7 @@ export const API_CONFIG = {
   },
 
   // Timeout configurations
-  TIMEOUT: 30000, // 30 seconds
+  TIMEOUT: 60000, // 60 seconds
   UPLOAD_TIMEOUT: 120000, // 2 minutes for file uploads
   
   // Rate limiting

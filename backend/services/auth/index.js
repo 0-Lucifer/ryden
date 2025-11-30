@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const { pgPool, redisClient, connectRedis } = require('../../shared/database');
-const { errorHandler, requestLogger } = require('../../shared/middleware');
+const { pgPool, redisClient, connectRedis } = require('./shared/database');
+const { errorHandler, requestLogger } = require('./shared/middleware');
 const authRoutes = require('./routes/auth.routes');
 
 const app = express();
@@ -10,7 +10,12 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:8081', 'http://localhost:8083', 'http://10.0.2.2:8081', 'http://192.168.0.51:8081', 'http://192.168.0.51:8083'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-App-Version', 'X-Platform']
+}));
 app.use(express.json());
 app.use(requestLogger);
 
@@ -53,3 +58,4 @@ process.on('SIGTERM', async () => {
   await redisClient.quit();
   process.exit(0);
 });
+
