@@ -7,7 +7,12 @@ const rideRoutes = require('./routes/ride.routes');
 
 const app = express();
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:8081', 'http://localhost:8083', 'http://10.0.2.2:8081', 'http://192.168.0.51:8081', 'http://192.168.0.51:8083'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-App-Version', 'X-Platform']
+}));
 app.use(express.json());
 app.use(requestLogger);
 

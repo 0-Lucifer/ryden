@@ -1,5 +1,5 @@
-const { pgPool, redisClient } = require('./../../shared/database');
-const { calculateFare, generateReferenceId, calculateDistance } = require('./../../shared/utils');
+const { pgPool, redisClient } = require('../shared/database');
+const { calculateFare, generateReferenceId, calculateDistance } = require('../shared/utils');
 const Joi = require('joi');
 
 // Validation schemas
@@ -606,16 +606,593 @@ exports.offerRide = async (req, res, next) => {
 
 exports.getRideDetails = async (req, res, next) => {
   try {
-    const ride = activeRides.get(req.params.id);
-    if (!ride) return res.status(404).json({ error: 'Ride not found' });
-    res.json({ success: true, data: ride });
-  } catch (e) { next(e); }
+    const rideId = req.params.id;
+    const userId = req.user.id;
+
+    const result = await pgPool.query(
+      `SELECT r.*, 
+              rider.first_name as rider_first_name, rider.last_name as rider_last_name,
+              rider.phone as rider_phone, rider.profile_image_url as rider_image,
+              d.first_name as driver_first_name, d.last_name as driver_last_name,
+              d.phone as driver_phone, d.profile_image_url as driver_image,
+              d.rating as driver_rating,
+              dp.vehicle_make, dp.vehicle_model, dp.vehicle_color, dp.vehicle_plate
+       FROM rides r
+       LEFT JOIN users rider ON r.rider_id = rider.id
+       LEFT JOIN users d ON r.driver_id = d.id
+       LEFT JOIN driver_profiles dp ON r.driver_id = dp.user_id
+       WHERE r.id = $1 AND (r.rider_id = $2 OR r.driver_id = $2)`,
+      [rideId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Ride not found' });
+    }
+
+    const ride = result.rows[0];
+    res.json({
+      success: true,
+      data: {
+        id: ride.id,
+        status: ride.status,
+        pickup: {
+          address: ride.pickup_address,
+          latitude: parseFloat(ride.pickup_lat),
+          longitude: parseFloat(ride.pickup_lng),
+        },
+        dropoff: {
+          address: ride.dropoff_address,
+          latitude: parseFloat(ride.dropoff_lat),
+          longitude: parseFloat(ride.dropoff_lng),
+        },
+        rider: {
+          id: ride.rider_id,
+          name: `${ride.rider_first_name} ${ride.rider_last_name}`,
+          phone: ride.rider_phone,
+          image: ride.rider_image,
+        },
+        driver: ride.driver_id ? {
+          id: ride.driver_id,
+          name: `${ride.driver_first_name} ${ride.driver_last_name}`,
+          phone: ride.driver_phone,
+          image: ride.driver_image,
+          rating: parseFloat(ride.driver_rating || 0),
+          vehicle: {
+            make: ride.vehicle_make,
+            model: ride.vehicle_model,
+            color: ride.vehicle_color,
+            plate: ride.vehicle_plate,
+          },
+        } : null,
+        vehicleType: ride.vehicle_type,
+        estimatedDistance: parseFloat(ride.estimated_distance || 0),
+        estimatedDuration: ride.estimated_duration,
+        estimatedFare: parseFloat(ride.estimated_fare || ride.total_fare),
+        actualFare: ride.actual_fare ? parseFloat(ride.actual_fare) : null,
+        paymentMethod: ride.payment_method,
+        paymentStatus: ride.payment_status,
+        createdAt: ride.created_at,
+        acceptedAt: ride.accepted_at,
+        startedAt: ride.started_at,
+        completedAt: ride.completed_at,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-exports.shareRide = async (req, res, next) => {
+// Accept a ride (driver)
+exports.acceptRide = async (req, res, next) => {
   try {
-    // Placeholder: would push notification/SMS
-    res.json({ success: true });
-  } catch (e) { next(e); }
+    const rideId = req.params.id;
+    const driverId = req.user.id;
+
+    // Check if driver has approved profile
+    const driverResult = await pgPool.query(
+      `SELECT dp.*, u.first_name, u.last_name 
+       FROM driver_profiles dp 
+       JOIN users u ON dp.user_id = u.id
+       WHERE dp.user_id = $1`,
+      [driverId]
+    );
+
+    if (driverResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Driver profile not found' });
+    }
+
+    // Get and validate ride
+    const rideResult = await pgPool.query(
+      'SELECT * FROM rides WHERE id = $1 AND status = $2',
+      [rideId, 'pending']
+    );
+
+    if (rideResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Ride not found or already taken' });
+    }
+
+    // Update ride with driver
+    await pgPool.query(
+      `UPDATE rides SET 
+        driver_id = $1, 
+        status = 'accepted', 
+        accepted_at = NOW(),
+        updated_at = NOW()
+       WHERE id = $2`,
+      [driverId, rideId]
+    );
+
+    // Clear cache
+    await redisClient.del(`ride:${rideId}`);
+
+    // TODO: Send notification to rider
+
+    res.json({
+      success: true,
+      message: 'Ride accepted successfully',
+      data: { rideId, status: 'accepted' },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Start a ride (driver)
+exports.startRide = async (req, res, next) => {
+  try {
+    const rideId = req.params.id;
+    const driverId = req.user.id;
+
+    const rideResult = await pgPool.query(
+      'SELECT * FROM rides WHERE id = $1 AND driver_id = $2 AND status = $3',
+      [rideId, driverId, 'accepted']
+    );
+
+    if (rideResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Ride not found or not in accepted state' });
+    }
+
+    await pgPool.query(
+      `UPDATE rides SET status = 'started', started_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [rideId]
+    );
+
+    await redisClient.del(`ride:${rideId}`);
+
+    res.json({
+      success: true,
+      message: 'Ride started',
+      data: { rideId, status: 'started', startedAt: new Date() },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Complete a ride (driver)
+exports.completeRide = async (req, res, next) => {
+  try {
+    const rideId = req.params.id;
+    const driverId = req.user.id;
+    const { actualDistance, actualDuration } = req.body;
+
+    const rideResult = await pgPool.query(
+      'SELECT * FROM rides WHERE id = $1 AND driver_id = $2 AND status = $3',
+      [rideId, driverId, 'started']
+    );
+
+    if (rideResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Ride not found or not started' });
+    }
+
+    const ride = rideResult.rows[0];
+
+    // Calculate actual fare if distance provided
+    let actualFare = ride.total_fare;
+    if (actualDistance) {
+      const fareDetails = calculateFare(actualDistance, actualDuration || ride.estimated_duration, ride.vehicle_type);
+      actualFare = fareDetails.totalFare;
+    }
+
+    await pgPool.query(
+      `UPDATE rides SET 
+        status = 'completed', 
+        completed_at = NOW(),
+        actual_distance = COALESCE($2, estimated_distance),
+        actual_duration = COALESCE($3, estimated_duration),
+        total_fare = $4,
+        updated_at = NOW()
+       WHERE id = $1`,
+      [rideId, actualDistance, actualDuration, actualFare]
+    );
+
+    // Update rider and driver stats
+    await pgPool.query(
+      'UPDATE users SET total_rides = total_rides + 1 WHERE id IN ($1, $2)',
+      [ride.rider_id, driverId]
+    );
+
+    await redisClient.del(`ride:${rideId}`);
+    await redisClient.del(`user:${ride.rider_id}:active_ride`);
+
+    res.json({
+      success: true,
+      message: 'Ride completed',
+      data: { 
+        rideId, 
+        status: 'completed', 
+        fare: actualFare,
+        completedAt: new Date() 
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get my ride offers (driver)
+exports.getMyOffers = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { status, page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT ro.*, 
+        (SELECT COUNT(*) FROM ride_offer_bookings WHERE offer_id = ro.id AND status = 'confirmed') as booking_count
+      FROM ride_offers ro
+      WHERE ro.driver_id = $1
+    `;
+    const params = [userId];
+
+    if (status) {
+      query += ` AND ro.status = $${params.length + 1}`;
+      params.push(status);
+    }
+
+    query += ` ORDER BY ro.departure_time DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
+
+    const result = await pgPool.query(query, params);
+
+    const offers = result.rows.map(o => ({
+      id: o.id,
+      route: {
+        start: { address: o.route_start_address, lat: parseFloat(o.route_start_lat), lng: parseFloat(o.route_start_lng) },
+        end: { address: o.route_end_address, lat: parseFloat(o.route_end_lat), lng: parseFloat(o.route_end_lng) },
+      },
+      departureTime: o.departure_time,
+      vehicleType: o.vehicle_type,
+      totalSeats: o.total_seats,
+      availableSeats: o.available_seats,
+      bookedSeats: parseInt(o.booking_count || 0),
+      pricePerSeat: parseFloat(o.price_per_seat),
+      status: o.status,
+      createdAt: o.created_at,
+    }));
+
+    res.json({ success: true, data: offers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get offer details
+exports.getOfferDetails = async (req, res, next) => {
+  try {
+    const offerId = req.params.id;
+
+    const result = await pgPool.query(
+      `SELECT ro.*, 
+              u.first_name, u.last_name, u.profile_image_url, u.rating, u.total_rides,
+              dp.vehicle_make, dp.vehicle_model, dp.vehicle_color, dp.vehicle_plate
+       FROM ride_offers ro
+       JOIN users u ON ro.driver_id = u.id
+       LEFT JOIN driver_profiles dp ON ro.driver_id = dp.user_id
+       WHERE ro.id = $1`,
+      [offerId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Offer not found' });
+    }
+
+    const o = result.rows[0];
+
+    // Get bookings for this offer
+    const bookingsResult = await pgPool.query(
+      `SELECT rob.*, u.first_name, u.last_name, u.profile_image_url
+       FROM ride_offer_bookings rob
+       JOIN users u ON rob.rider_id = u.id
+       WHERE rob.offer_id = $1 AND rob.status = 'confirmed'`,
+      [offerId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: o.id,
+        driver: {
+          id: o.driver_id,
+          name: `${o.first_name} ${o.last_name}`,
+          image: o.profile_image_url,
+          rating: parseFloat(o.rating || 0),
+          totalRides: o.total_rides,
+        },
+        route: {
+          start: { address: o.route_start_address, lat: parseFloat(o.route_start_lat), lng: parseFloat(o.route_start_lng) },
+          end: { address: o.route_end_address, lat: parseFloat(o.route_end_lat), lng: parseFloat(o.route_end_lng) },
+          distance: parseFloat(o.total_distance || 0),
+        },
+        departureTime: o.departure_time,
+        vehicle: {
+          type: o.vehicle_type,
+          make: o.vehicle_make,
+          model: o.vehicle_model,
+          color: o.vehicle_color,
+          plate: o.vehicle_plate,
+        },
+        totalSeats: o.total_seats,
+        availableSeats: o.available_seats,
+        pricePerSeat: parseFloat(o.price_per_seat),
+        amenities: o.amenities || [],
+        notes: o.notes,
+        status: o.status,
+        bookings: bookingsResult.rows.map(b => ({
+          id: b.id,
+          rider: { id: b.rider_id, name: `${b.first_name} ${b.last_name}`, image: b.profile_image_url },
+          seats: b.seats_booked,
+          pickup: b.pickup_address,
+          dropoff: b.dropoff_address,
+        })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Book a ride offer
+const bookRideSchema = Joi.object({
+  seats: Joi.number().integer().min(1).max(7).required(),
+  pickup: Joi.object({
+    address: Joi.string().required(),
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+  }).required(),
+  dropoff: Joi.object({
+    address: Joi.string().required(),
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+  }).required(),
+  paymentMethod: Joi.string().valid('cash', 'bkash', 'nagad', 'wallet').default('cash'),
+});
+
+exports.bookRide = async (req, res, next) => {
+  try {
+    const offerId = req.params.id;
+    const riderId = req.user.id;
+    const { error, value } = bookRideSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
+
+    const { seats, pickup, dropoff, paymentMethod } = value;
+
+    // Get offer
+    const offerResult = await pgPool.query(
+      'SELECT * FROM ride_offers WHERE id = $1 AND status = $2',
+      [offerId, 'available']
+    );
+
+    if (offerResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Offer not found or not available' });
+    }
+
+    const offer = offerResult.rows[0];
+
+    // Check if rider is the driver
+    if (offer.driver_id === riderId) {
+      return res.status(400).json({ error: 'You cannot book your own ride' });
+    }
+
+    // Check available seats
+    if (offer.available_seats < seats) {
+      return res.status(400).json({ error: `Only ${offer.available_seats} seats available` });
+    }
+
+    // Check for existing booking
+    const existingBooking = await pgPool.query(
+      'SELECT id FROM ride_offer_bookings WHERE offer_id = $1 AND rider_id = $2 AND status = $3',
+      [offerId, riderId, 'confirmed']
+    );
+
+    if (existingBooking.rows.length > 0) {
+      return res.status(400).json({ error: 'You already have a booking for this ride' });
+    }
+
+    // Calculate fare based on distance
+    const riderDistance = calculateDistance(
+      pickup.latitude, pickup.longitude,
+      dropoff.latitude, dropoff.longitude
+    );
+    const fare = (offer.price_per_seat * seats * (riderDistance / offer.total_distance)).toFixed(2);
+
+    const bookingId = generateReferenceId('BOOK');
+
+    // Create booking
+    await pgPool.query(
+      `INSERT INTO ride_offer_bookings (
+        id, offer_id, rider_id, seats_booked,
+        pickup_address, pickup_lat, pickup_lng,
+        dropoff_address, dropoff_lat, dropoff_lng,
+        fare, payment_method, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [
+        bookingId, offerId, riderId, seats,
+        pickup.address, pickup.latitude, pickup.longitude,
+        dropoff.address, dropoff.latitude, dropoff.longitude,
+        fare, paymentMethod, 'confirmed'
+      ]
+    );
+
+    // Update available seats
+    const newAvailable = offer.available_seats - seats;
+    await pgPool.query(
+      `UPDATE ride_offers SET 
+        available_seats = $1, 
+        status = CASE WHEN $1 = 0 THEN 'full' ELSE status END,
+        updated_at = NOW()
+       WHERE id = $2`,
+      [newAvailable, offerId]
+    );
+
+    // TODO: Send notification to driver
+
+    res.status(201).json({
+      success: true,
+      message: 'Booking confirmed',
+      data: {
+        bookingId,
+        offerId,
+        seats,
+        fare: parseFloat(fare),
+        status: 'confirmed',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get my bookings (rider)
+exports.getMyBookings = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { status, page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT rob.*, 
+             ro.route_start_address, ro.route_end_address, ro.departure_time, ro.vehicle_type,
+             u.first_name as driver_first_name, u.last_name as driver_last_name, 
+             u.profile_image_url as driver_image, u.rating as driver_rating,
+             dp.vehicle_make, dp.vehicle_model, dp.vehicle_plate
+      FROM ride_offer_bookings rob
+      JOIN ride_offers ro ON rob.offer_id = ro.id
+      JOIN users u ON ro.driver_id = u.id
+      LEFT JOIN driver_profiles dp ON ro.driver_id = dp.user_id
+      WHERE rob.rider_id = $1
+    `;
+    const params = [userId];
+
+    if (status) {
+      query += ` AND rob.status = $${params.length + 1}`;
+      params.push(status);
+    }
+
+    query += ` ORDER BY ro.departure_time DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
+
+    const result = await pgPool.query(query, params);
+
+    const bookings = result.rows.map(b => ({
+      id: b.id,
+      offerId: b.offer_id,
+      driver: {
+        name: `${b.driver_first_name} ${b.driver_last_name}`,
+        image: b.driver_image,
+        rating: parseFloat(b.driver_rating || 0),
+      },
+      route: {
+        start: b.route_start_address,
+        end: b.route_end_address,
+      },
+      pickup: b.pickup_address,
+      dropoff: b.dropoff_address,
+      departureTime: b.departure_time,
+      seats: b.seats_booked,
+      fare: parseFloat(b.fare),
+      paymentStatus: b.payment_status,
+      status: b.status,
+      vehicle: {
+        type: b.vehicle_type,
+        make: b.vehicle_make,
+        model: b.vehicle_model,
+        plate: b.vehicle_plate,
+      },
+    }));
+
+    res.json({ success: true, data: bookings });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Cancel booking
+exports.cancelBooking = async (req, res, next) => {
+  try {
+    const bookingId = req.params.id;
+    const userId = req.user.id;
+    const { reason } = req.body;
+
+    const bookingResult = await pgPool.query(
+      `SELECT rob.*, ro.departure_time, ro.driver_id
+       FROM ride_offer_bookings rob
+       JOIN ride_offers ro ON rob.offer_id = ro.id
+       WHERE rob.id = $1 AND rob.rider_id = $2`,
+      [bookingId, userId]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    const booking = bookingResult.rows[0];
+
+    if (booking.status !== 'confirmed') {
+      return res.status(400).json({ error: 'Booking cannot be cancelled' });
+    }
+
+    // Check if cancellation is too close to departure (e.g., less than 1 hour)
+    const hoursUntilDeparture = (new Date(booking.departure_time) - Date.now()) / (1000 * 60 * 60);
+    const cancellationFee = hoursUntilDeparture < 1 ? booking.fare * 0.2 : 0; // 20% fee if < 1 hour
+
+    // Update booking
+    await pgPool.query(
+      `UPDATE ride_offer_bookings SET 
+        status = 'cancelled', 
+        cancelled_at = NOW(),
+        cancellation_reason = $1,
+        updated_at = NOW()
+       WHERE id = $2`,
+      [reason, bookingId]
+    );
+
+    // Return seats to offer
+    await pgPool.query(
+      `UPDATE ride_offers SET 
+        available_seats = available_seats + $1,
+        status = CASE WHEN status = 'full' THEN 'available' ELSE status END,
+        updated_at = NOW()
+       WHERE id = $2`,
+      [booking.seats_booked, booking.offer_id]
+    );
+
+    // TODO: Notify driver
+
+    res.json({
+      success: true,
+      message: 'Booking cancelled',
+      data: { 
+        bookingId, 
+        cancellationFee,
+        refundAmount: booking.fare - cancellationFee 
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
