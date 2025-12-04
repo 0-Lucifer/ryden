@@ -1,3 +1,5 @@
+import LocationPicker from '@/components/location-picker';
+import { DEFAULT_LOCATION, Location } from '@/constants/locations';
 import { useRide } from '@/context/RideContext';
 import React, { useState } from 'react';
 import { Alert, ScrollView, Switch, Text, TextInput, View } from 'react-native';
@@ -6,9 +8,9 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 export default function OfferRideScreen() {
   const { publishRide, isLoadingRide } = useRide();
 
-  const [from, setFrom] = useState('NSU Campus, Bashundhara');
-  const [to, setTo] = useState('');
-  const [stop, setStop] = useState('');
+  const [fromLocation, setFromLocation] = useState<Location | { name: string }>(DEFAULT_LOCATION);
+  const [toLocation, setToLocation] = useState<Location | { name: string } | null>(null);
+  const [stopLocation, setStopLocation] = useState<Location | { name: string } | null>(null);
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState<string>('08:00');
   const [vehicle, setVehicle] = useState('Toyota Axio');
@@ -22,14 +24,14 @@ export default function OfferRideScreen() {
 
   const handlePublish = async () => {
     try {
-      if (!from || !to || !date || !time || !vehicle || !seats || !price) {
+      if (!fromLocation || !toLocation || !date || !time || !vehicle || !seats || !price) {
         Alert.alert('Missing info', 'Please complete all required fields');
         return;
       }
       const res = await publishRide({
-        from,
-        to,
-        stops: stop ? [stop] : undefined,
+        from: fromLocation.name,
+        to: toLocation.name,
+        stops: stopLocation ? [stopLocation.name] : undefined,
         date,
         time,
         vehicle,
@@ -52,14 +54,32 @@ export default function OfferRideScreen() {
         {/* Route Details */}
         <View className="border border-gray-200 rounded-xl p-3 mb-3">
           <Text className="text-gray-900 font-medium mb-2">Route Details</Text>
-          <Text className="text-gray-600 mb-1">Departure Location</Text>
-          <TextInput value={from} onChangeText={setFrom} placeholder="e.g., NSU Campus, Bashundhara" className="border border-gray-300 rounded-lg px-3 py-2 mb-2" />
+          <View className="mb-2">
+            <LocationPicker
+              label="Departure Location"
+              value={fromLocation?.name || ''}
+              onSelect={setFromLocation}
+              placeholder="Select departure location"
+            />
+          </View>
 
-          <Text className="text-gray-600 mb-1">Destination</Text>
-          <TextInput value={to} onChangeText={setTo} placeholder="e.g., Dhanmondi" className="border border-gray-300 rounded-lg px-3 py-2 mb-2" />
+          <View className="mb-2">
+            <LocationPicker
+              label="Destination"
+              value={toLocation?.name || ''}
+              onSelect={setToLocation}
+              placeholder="Select destination"
+            />
+          </View>
 
-          <Text className="text-gray-600 mb-1">Stop Along the Way (optional)</Text>
-          <TextInput value={stop} onChangeText={setStop} placeholder="e.g., Badda" className="border border-gray-300 rounded-lg px-3 py-2" />
+          <View>
+            <LocationPicker
+              label="Stop Along the Way (optional)"
+              value={stopLocation?.name || ''}
+              onSelect={setStopLocation}
+              placeholder="Add a stop"
+            />
+          </View>
         </View>
 
         {/* When */}

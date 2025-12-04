@@ -181,6 +181,71 @@ class RideService {
     }
   }
 
+  // Book a ride offer (passenger books seats from driver's offer)
+  async bookRide(offerId: string, data: {
+    seats: number;
+    paymentMethod: 'cash' | 'bkash' | 'nagad' | 'wallet';
+    pickupNote?: string;
+  }): Promise<{ success: boolean; bookingId: string; status: string }> {
+    try {
+      const response = await ApiService.post<{ success: boolean; data: { bookingId: string; status: string } }>(
+        `${API_CONFIG.SERVICES.RIDE}/offers/${offerId}/book`,
+        data
+      );
+      return { success: true, bookingId: response.data.bookingId, status: response.data.status };
+    } catch (error) {
+      console.error('[RideService] Book ride failed:', error);
+      throw error;
+    }
+  }
+
+  // Get ride offer details
+  async getRideOffer(offerId: string): Promise<RideOffer> {
+    try {
+      const response = await ApiService.get<{ success: boolean; data: RideOffer }>(
+        `${API_CONFIG.SERVICES.RIDE}/offers/${offerId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('[RideService] Get ride offer failed:', error);
+      throw error;
+    }
+  }
+
+  // Get booking requests for driver
+  async getMyRideRequests(): Promise<{
+    id: string;
+    offerId: string;
+    passenger: { id: string; name: string; phone: string; rating: number };
+    seatsBooked: number;
+    totalFare: number;
+    status: string;
+    createdAt: string;
+  }[]> {
+    try {
+      const response = await ApiService.get<{ success: boolean; data: any[] }>(
+        `${API_CONFIG.SERVICES.RIDE}/offers/requests`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('[RideService] Get ride requests failed:', error);
+      throw error;
+    }
+  }
+
+  // Accept or decline booking request (for driver)
+  async respondToBookingRequest(bookingId: string, action: 'accept' | 'decline'): Promise<{ success: boolean }> {
+    try {
+      return await ApiService.post(
+        `${API_CONFIG.SERVICES.RIDE}/bookings/${bookingId}/${action}`,
+        {}
+      );
+    } catch (error) {
+      console.error('[RideService] Respond to booking failed:', error);
+      throw error;
+    }
+  }
+
   // Calculate fare estimate
   async calculateFare(
     pickup: { latitude: number; longitude: number },

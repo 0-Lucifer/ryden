@@ -3,6 +3,18 @@ import RideService, { NearbyDriver, Ride, RideOffer, RideRequest } from '@/servi
 import WebSocketService from '@/services/websocket.service';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
+interface BookingData {
+  seats: number;
+  paymentMethod: 'cash' | 'bkash' | 'nagad' | 'wallet';
+  pickupNote?: string;
+}
+
+interface BookingResult {
+  success: boolean;
+  bookingId: string;
+  status: string;
+}
+
 interface RideContextType {
   activeRide: Ride | null;
   isLoadingRide: boolean;
@@ -13,6 +25,8 @@ interface RideContextType {
   fetchNearbyDrivers: (location: { latitude: number; longitude: number }) => Promise<void>;
   searchRides: (params: { from: string; to: string; date?: string; time?: string; passengers?: number; vehicleType?: string }) => Promise<RideOffer[]>;
   publishRide: (data: { from: string; to: string; stops?: string[]; date: string; time: string; vehicle: string; vehicleType: string; seats: number; pricePerSeat: number; amenities?: { instantBooking?: boolean; music?: boolean; pets?: boolean; luggage?: boolean } }) => Promise<{ success: boolean; offerId: string }>;
+  bookRide: (offerId: string, data: BookingData) => Promise<BookingResult>;
+  respondToBookingRequest: (bookingId: string, action: 'accept' | 'decline') => Promise<{ success: boolean }>;
 }
 
 const RideContext = createContext<RideContextType | undefined>(undefined);
@@ -130,6 +144,37 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const bookRide: RideContextType['bookRide'] = async (offerId, data) => {
+    try {
+      setIsLoadingRide(true);
+      const result = await RideService.bookRide(offerId, data);
+      
+      // If booking succeeded and was auto-confirmed (instant booking), fetch active ride
+      if (result.success && result.status === 'confirmed') {
+        await fetchActiveRide();
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[RideContext] Book ride error:', error);
+      throw error;
+    } finally {
+      setIsLoadingRide(false);
+    }
+  };
+
+  const respondToBookingRequest: RideContextType['respondToBookingRequest'] = async (bookingId, action) => {
+    try {
+      setIsLoadingRide(true);
+      return await RideService.respondToBookingRequest(bookingId, action);
+    } catch (error) {
+      console.error('[RideContext] Respond to booking error:', error);
+      throw error;
+    } finally {
+      setIsLoadingRide(false);
+    }
+  };
+
   return (
     <RideContext.Provider
       value={{
@@ -142,6 +187,8 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
         fetchNearbyDrivers,
         searchRides,
         publishRide,
+        bookRide,
+        respondToBookingRequest,
       }}
     >
       {children}

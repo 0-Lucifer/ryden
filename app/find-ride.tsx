@@ -1,4 +1,6 @@
+import LocationPicker from '@/components/location-picker';
 import RideCard from '@/components/ride-card';
+import { DEFAULT_LOCATION, Location } from '@/constants/locations';
 import { useRide } from '@/context/RideContext';
 import React, { useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, View } from 'react-native';
@@ -6,22 +8,28 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 
 export default function FindRideScreen() {
   const { searchRides, isLoadingRide } = useRide();
-  const [from, setFrom] = useState('NSU Campus, Bashundhara');
-  const [to, setTo] = useState('');
+  const [fromLocation, setFromLocation] = useState<Location | { name: string }>(DEFAULT_LOCATION);
+  const [toLocation, setToLocation] = useState<Location | { name: string } | null>(null);
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [results, setResults] = useState<any[]>([]);
 
   const handleSearch = async () => {
     try {
-      if (!from || !to) {
-        Alert.alert('Missing info', 'Please enter both origin and destination');
+      if (!fromLocation || !toLocation) {
+        Alert.alert('Missing info', 'Please select both origin and destination');
         return;
       }
-      const data = await searchRides({ from, to, date });
+      const data = await searchRides({ 
+        from: fromLocation.name, 
+        to: toLocation.name, 
+        date,
+      });
       setResults(data);
     } catch (e: any) {
       console.log(e);
       // Fallback: show sample data if backend not ready
+      const from = fromLocation.name;
+      const to = toLocation?.name || 'Destination';
       setResults([
         {
           id: 'sample-1',
@@ -37,7 +45,7 @@ export default function FindRideScreen() {
         {
           id: 'sample-2',
           driver: { name: 'Nusrat Jahan', rating: 4.8, reviews: 89, isFemaleDriver: true },
-          route: { from, to: 'Gulshan 2' },
+          route: { from, to },
           when: { dateTime: new Date().toISOString(), durationMinutes: 30 },
           vehicle: { type: 'car', model: 'Honda Civic' },
           pricePerSeat: 80,
@@ -48,7 +56,7 @@ export default function FindRideScreen() {
         {
           id: 'sample-3',
           driver: { name: 'Rafid Ahmed', rating: 5.0, reviews: 263, isInstant: true },
-          route: { from, to: 'Uttara Sector 7' },
+          route: { from, to },
           when: { dateTime: new Date().toISOString(), durationMinutes: 55 },
           vehicle: { type: 'car', model: 'Axio' },
           pricePerSeat: 100,
@@ -66,22 +74,20 @@ export default function FindRideScreen() {
         <Text className="text-lg font-semibold mb-3">Find a Ride</Text>
 
         <View className="mb-3">
-          <Text className="text-gray-600 mb-1">From</Text>
-          <TextInput
-            value={from}
-            onChangeText={setFrom}
-            placeholder="e.g., NSU Campus, Bashundhara"
-            className="border border-gray-300 rounded-lg px-3 py-2"
+          <LocationPicker
+            label="From"
+            value={fromLocation?.name || ''}
+            onSelect={setFromLocation}
+            placeholder="Select pickup location"
           />
         </View>
 
         <View className="mb-3">
-          <Text className="text-gray-600 mb-1">To</Text>
-          <TextInput
-            value={to}
-            onChangeText={setTo}
-            placeholder="e.g., Dhanmondi"
-            className="border border-gray-300 rounded-lg px-3 py-2"
+          <LocationPicker
+            label="To"
+            value={toLocation?.name || ''}
+            onSelect={setToLocation}
+            placeholder="Select destination"
           />
         </View>
 
