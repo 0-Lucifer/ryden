@@ -1,8 +1,24 @@
 // API Configuration for Bangladesh NSU Ride-Sharing App
+import { Platform } from 'react-native';
+
+// Determine if we're in development
+const isDevelopment = __DEV__ && (Platform.OS !== 'web' || process.env.NODE_ENV !== 'production');
+
+console.log('[API Config] Environment:', {
+  isDevelopment,
+  platform: Platform.OS,
+  apiUrl: process.env.EXPO_PUBLIC_API_URL,
+  apiGateway: process.env.EXPO_PUBLIC_API_GATEWAY,
+  nodeEnv: process.env.NODE_ENV,
+});
+
 export const API_CONFIG = {
   // Base URLs for different environments
-  BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api',
-  API_GATEWAY: process.env.EXPO_PUBLIC_API_GATEWAY || 'https://api.ryden.bd',
+  // For web development, use the exact URL with /api suffix
+  BASE_URL: (process.env.EXPO_PUBLIC_API_URL) || 
+    (isDevelopment ? 'http://localhost:3000/api' : 'https://api.ryden.app'),
+  API_GATEWAY: (process.env.EXPO_PUBLIC_API_GATEWAY) || 
+    (isDevelopment ? 'http://localhost:3000' : 'https://api.ryden.app'),
   
   // Microservices endpoints
   SERVICES: {

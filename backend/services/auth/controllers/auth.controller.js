@@ -10,6 +10,7 @@ const {
   isValidBDPhone,
 } = require('../shared/utils');
 const twilioService = require('../services/twilio.service');
+const { sendVerificationEmail } = require('../utils/mailer');
 
 // Validation schemas
 const registerSchema = Joi.object({
@@ -47,6 +48,11 @@ exports.register = async (req, res, next) => {
       university,
     } = value;
 
+    // Require NSU email
+    if (!email.toLowerCase().endsWith('@northsouth.edu')) {
+      return res.status(400).json({ error: 'Email must be a northsouth.edu address' });
+    }
+
     // Format phone number
     const formattedPhone = formatPhoneNumber(phone);
     if (!isValidBDPhone(formattedPhone)) {
@@ -66,10 +72,10 @@ exports.register = async (req, res, next) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user (email not verified yet)
     const result = await pgPool.query(
-      `INSERT INTO users (email, phone, password_hash, first_name, last_name, role, student_id, university)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO users (email, phone, password_hash, first_name, last_name, role, student_id, university, is_verified)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id, email, phone, first_name, last_name, role, student_id, university, is_verified, created_at`,
       [
         email,
@@ -80,16 +86,38 @@ exports.register = async (req, res, next) => {
         role,
         studentId,
         university,
+        false,
       ]
     );
 
     const user = result.rows[0];
 
-    // Generate tokens
+    // Generate email verification token and persist it
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_SECRET;
+    const verificationExpires = process.env.EMAIL_VERIFICATION_EXPIRES || '24h';
+    const verificationToken = jwt.sign(
+      { sub: user.id, type: 'email_verification' },
+      verificationSecret,
+      { expiresIn: verificationExpires }
+    );
+
+    const expiresAtToken = new Date(Date.now() + (24 * 60 * 60 * 1000));
+    await pgPool.query(
+      'INSERT INTO email_verifications (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [user.id, verificationToken, expiresAtToken]
+    );
+
+    // Send verification email (best-effort)
+    try {
+      await sendVerificationEmail(user.email, verificationToken);
+    } catch (err) {
+      console.error('Failed to send verification email:', err);
+    }
+
+    // Generate tokens for immediate client state (optional)
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Store refresh token in database
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     await pgPool.query(
       'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
@@ -98,7 +126,7 @@ exports.register = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'User registered successfully. Please verify your NSU email.',
       data: {
         user: {
           id: user.id,
@@ -154,6 +182,11 @@ exports.login = async (req, res, next) => {
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Enforce email verification
+    if (!user.is_verified) {
+      return res.status(403).json({ error: 'Email not verified' });
     }
 
     // Generate tokens
@@ -305,6 +338,45 @@ exports.verifyOTP = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+// Verify email token
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    const token = req.query.token || req.body.token;
+    if (!token) return res.status(400).send('Missing token');
+
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_SECRET;
+
+    let payload;
+    try {
+      payload = jwt.verify(token, verificationSecret);
+    } catch (err) {
+      return res.status(400).send('Invalid or expired token');
+    }
+
+    // Check persisted token
+    const row = await pgPool.query('SELECT user_id, expires_at FROM email_verifications WHERE token = $1', [token]);
+    if (row.rows.length === 0) {
+      return res.status(400).send('Invalid or already used token');
+    }
+
+    const rec = row.rows[0];
+    if (new Date(rec.expires_at) < new Date()) {
+      return res.status(400).send('Token expired');
+    }
+
+    // Mark user verified
+    await pgPool.query('UPDATE users SET is_verified = TRUE WHERE id = $1', [rec.user_id]);
+
+    // Delete token record
+    await pgPool.query('DELETE FROM email_verifications WHERE token = $1', [token]);
+
+    const redirectUrl = process.env.APP_URL || 'http://localhost:8081';
+    return res.redirect(`${redirectUrl}/auth/verified?success=true`);
+  } catch (err) {
+    next(err);
   }
 };
 

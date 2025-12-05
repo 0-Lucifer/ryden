@@ -8,8 +8,9 @@ class ApiService {
   private authToken: string | null = null;
 
   constructor() {
+    console.log('[API Service] Initializing with BASE_URL:', API_CONFIG.BASE_URL);
     this.client = axios.create({
-      baseURL: API_CONFIG.API_GATEWAY,
+      baseURL: API_CONFIG.BASE_URL,
       timeout: API_CONFIG.TIMEOUT,
       headers: getAuthHeaders(),
     });
@@ -29,7 +30,7 @@ class ApiService {
           config.headers.Authorization = `Bearer ${this.authToken}`;
         }
         
-        console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        console.log(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
         return config;
       },
       (error) => {

@@ -1,37 +1,27 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const http = require('http');
+const https = require('https');
 const jwt = require('jsonwebtoken');
+const url = require('url');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet());
 app.use(cors());
-app.use(express.json());
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 1000, // 1000 requests per minute
-  message: 'Too many requests from this IP, please try again later',
-});
-app.use(limiter);
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Request logging
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`);
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} - ${Date.now() - start}ms`);
   });
   next();
 });
 
-// JWT Authentication Middleware (for protected routes)
+// JWT Authentication Middleware
 const authenticate = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -70,102 +60,86 @@ const services = {
   rating: process.env.RATING_SERVICE_URL || 'http://rating-service:3008',
 };
 
-// Proxy configuration
-const proxyOptions = {
-  changeOrigin: true,
-  logLevel: 'debug',
-  onError: (err, req, res) => {
-    console.error('Proxy error:', err);
+// Simple proxy function
+const proxyRequest = (targetUrl, req, res) => {
+  console.log(`[PROXY] Forwarding ${req.method} ${req.originalUrl} to ${targetUrl}`);
+  const parsedUrl = new URL(req.originalUrl.replace(/^\/api/, ''), targetUrl);
+  
+  const requestOptions = {
+    hostname: parsedUrl.hostname,
+    port: parsedUrl.port || 3001,
+    path: parsedUrl.pathname + parsedUrl.search,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      'host': parsedUrl.host,
+    },
+    timeout: 30000,
+  };
+
+  delete requestOptions.headers['content-length'];
+
+  const protocol = parsedUrl.protocol === 'https:' ? https : http;
+  
+  const proxyReq = protocol.request(requestOptions, (proxyRes) => {
+    console.log(`[PROXY] Response: ${proxyRes.statusCode}`);
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error('Proxy error:', err.message);
     res.status(503).json({ error: 'Service temporarily unavailable' });
-  },
+  });
+
+  proxyReq.on('timeout', () => {
+    console.error('Proxy timeout');
+    proxyReq.abort();
+    res.status(504).json({ error: 'Gateway timeout' });
+  });
+
+  req.pipe(proxyReq);
 };
 
 // Auth Service (Public routes)
-app.use(
-  '/api/auth',
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.auth,
-    pathRewrite: { '^/api/auth': '/api/auth' },
-  })
-);
+app.use('/api/auth/', (req, res) => {
+  proxyRequest(services.auth, req, res);
+});
 
 // User Service (Protected)
-app.use(
-  '/api/users',
-  authenticate,
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.user,
-    pathRewrite: { '^/api/users': '/api/users' },
-  })
-);
+app.use('/api/users/', authenticate, (req, res) => {
+  proxyRequest(services.user, req, res);
+});
 
 // Ride Service (Protected)
-app.use(
-  '/api/rides',
-  authenticate,
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.ride,
-    pathRewrite: { '^/api/rides': '/api/rides' },
-  })
-);
+app.use('/api/rides/', authenticate, (req, res) => {
+  proxyRequest(services.ride, req, res);
+});
 
 // Location Service (Protected)
-app.use(
-  '/api/location',
-  authenticate,
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.location,
-    pathRewrite: { '^/api/location': '/api/location' },
-  })
-);
+app.use('/api/location/', authenticate, (req, res) => {
+  proxyRequest(services.location, req, res);
+});
 
 // Payment Service (Protected)
-app.use(
-  '/api/payments',
-  authenticate,
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.payment,
-    pathRewrite: { '^/api/payments': '/api/payments' },
-  })
-);
+app.use('/api/payments/', authenticate, (req, res) => {
+  proxyRequest(services.payment, req, res);
+});
 
 // Notification Service (Protected)
-app.use(
-  '/api/notifications',
-  authenticate,
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.notification,
-    pathRewrite: { '^/api/notifications': '/api/notifications' },
-  })
-);
+app.use('/api/notifications/', authenticate, (req, res) => {
+  proxyRequest(services.notification, req, res);
+});
 
 // Chat Service (Protected)
-app.use(
-  '/api/chat',
-  authenticate,
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.chat,
-    pathRewrite: { '^/api/chat': '/api/chat' },
-  })
-);
+app.use('/api/chat/', authenticate, (req, res) => {
+  proxyRequest(services.chat, req, res);
+});
 
 // Rating Service (Protected)
-app.use(
-  '/api/ratings',
-  authenticate,
-  createProxyMiddleware({
-    ...proxyOptions,
-    target: services.rating,
-    pathRewrite: { '^/api/ratings': '/api/ratings' },
-  })
-);
+app.use('/api/ratings/', authenticate, (req, res) => {
+  proxyRequest(services.rating, req, res);
+});
 
 // 404 handler
 app.use((req, res) => {
@@ -176,6 +150,16 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error('Gateway error:', err);
   res.status(500).json({ error: 'Internal server error' });
+});
+
+// Global error handlers
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION:', reason);
 });
 
 app.listen(PORT, () => {

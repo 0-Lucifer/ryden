@@ -1,17 +1,23 @@
 FROM node:18-alpine
 
-WORKDIR /app
+WORKDIR /workspace
 
-# Copy shared folder at app root level
-COPY ./shared ./shared
+# Copy shared package files and install dependencies
+COPY shared/package*.json ./shared/
+RUN cd shared && npm install --production
 
-# Copy service package.json
-COPY ./services/auth/package*.json ./
+# Copy service package files
+COPY services/auth/package*.json ./services/auth/
 
-RUN npm install --production
+RUN cd services/auth && npm install --production
 
-# Copy all service files maintaining structure
-COPY ./services/auth/ ./
+# Copy service code
+COPY services/auth services/auth
+
+# Copy shared modules
+COPY shared shared
+
+WORKDIR /workspace/services/auth
 
 EXPOSE 3001
 

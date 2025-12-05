@@ -12,6 +12,7 @@ router.post('/refresh-token', authController.refreshToken);
 router.post('/social-login', authController.socialLogin);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
+router.get('/verify-email', authController.verifyEmail);
 
 // Protected routes
 router.post('/logout', authenticateToken, authController.logout);

@@ -252,6 +252,40 @@ class AuthService {
       throw error;
     }
   }
+
+  // Send password reset email
+  async sendPasswordResetEmail(email: string): Promise<{ success: boolean; message: string }> {
+    try {
+      return await ApiService.post(`${API_CONFIG.SERVICES.AUTH}/send-password-reset`, { email });
+    } catch (error) {
+      console.error('[AuthService] Send password reset email failed:', error);
+      throw error;
+    }
+  }
+
+  // Verify password reset code
+  async verifyPasswordResetCode(email: string, code: string): Promise<{ success: boolean; message: string }> {
+    try {
+      return await ApiService.post(`${API_CONFIG.SERVICES.AUTH}/verify-reset-code`, { email, code });
+    } catch (error) {
+      console.error('[AuthService] Verify reset code failed:', error);
+      throw error;
+    }
+  }
+
+  // Reset password with code
+  async resetPassword(email: string, code: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    try {
+      return await ApiService.post(`${API_CONFIG.SERVICES.AUTH}/reset-password`, {
+        email,
+        code,
+        newPassword,
+      });
+    } catch (error) {
+      console.error('[AuthService] Reset password failed:', error);
+      throw error;
+    }
+  }
 }
 
 export default new AuthService();

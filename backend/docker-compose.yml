@@ -46,9 +46,7 @@ services:
 
   # API Gateway
   gateway:
-    build:
-      context: .
-      dockerfile: ./gateway/Dockerfile
+    build: ./gateway
     container_name: ryden-gateway
     ports:
       - "3000:3000"
@@ -73,12 +71,15 @@ services:
 
   # Auth Service (Port 3001)
   auth-service:
+    container_name: ryden-auth-service
     build:
       context: .
-      dockerfile: ./services/auth/Dockerfile
-    container_name: ryden-auth-service
+      dockerfile: services/auth/Dockerfile
     ports:
       - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
     environment:
       - NODE_ENV=development
       - PORT=3001
@@ -87,16 +88,26 @@ services:
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - JWT_EXPIRES_IN=1h
       - REFRESH_TOKEN_EXPIRES_IN=7d
+      # Email verification - MailerSend SMTP
+      - SMTP_HOST=smtp.mailersend.net
+      - SMTP_PORT=587
+      - SMTP_USER=MS_tHQFs2@test-q3enl6k6rn542vwr.mlsender.net
+      - SMTP_PASS=mssp.K04vDn5.jy7zpl911o5g5vx6.CoBxKBz
+      - SMTP_FROM=Ryden Campus <MS_tHQFs2@test-q3enl6k6rn542vwr.mlsender.net>
+      - APP_URL=http://localhost:8081
+      - EMAIL_VERIFICATION_SECRET=email_verification_secret_key_change_in_production_min_32_chars_long
+      - EMAIL_VERIFICATION_EXPIRES=24h
+      # Optional: Twilio for SMS verification
+      - TWILIO_ENABLED=false
       - TWILIO_ACCOUNT_SID=your_twilio_account_sid
       - TWILIO_AUTH_TOKEN=your_twilio_auth_token
       - TWILIO_PHONE_NUMBER=+1234567890
+      # OAuth (optional)
       - GOOGLE_CLIENT_ID=your_google_client_id
       - FACEBOOK_APP_ID=your_facebook_app_id
-    depends_on:
-      - postgres
-      - redis
     networks:
       - ryden-network
+    restart: unless-stopped
 
   # User Service (Port 3002)
   user-service:
