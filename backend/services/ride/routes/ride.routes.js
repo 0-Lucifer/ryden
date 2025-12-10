@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/ride.controller');
+const { authenticateToken, errorHandler } = require('../../../shared/middleware');
 
 router.post('/request', ctrl.requestRide);
 router.post('/calculate-fare', ctrl.calculateFare);

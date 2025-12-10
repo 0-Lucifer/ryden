@@ -1,7 +1,8 @@
 // Ride Context - Global ride state management
+import { useAuth } from '@/context/AuthContext';
 import RideService, { NearbyDriver, Ride, RideOffer, RideRequest } from '@/services/ride.service';
 import WebSocketService from '@/services/websocket.service';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 interface BookingData {
   seats: number;
@@ -32,32 +33,73 @@ interface RideContextType {
 const RideContext = createContext<RideContextType | undefined>(undefined);
 
 export const RideProvider = ({ children }: { children: ReactNode }) => {
+  const { isAuthenticated } = useAuth();
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
   const [isLoadingRide, setIsLoadingRide] = useState(false);
   const [nearbyDrivers, setNearbyDrivers] = useState<NearbyDriver[]>([]);
 
-  // Fetch active ride on mount
+  const fetchActiveRide = useCallback(async () => {
+    try {
+      const ride = await RideService.getActiveRide();
+      setActiveRide(ride);
+      
+      if (ride) {
+        // Join ride room for real-time updates
+        WebSocketService.joinRide(ride.id);
+      }
+    } catch (error) {
+      // Silently fail if ride service not available yet
+      console.warn('[RideContext] Ride service not available:', error);
+      setActiveRide(null);
+    }
+  }, []);
+
+  // Fetch active ride on mount (only if explicitly authenticated === true)
   useEffect(() => {
+    if (isAuthenticated !== true) {
+      setActiveRide(null);
+      // remove handlers only if available
+      if (typeof WebSocketService.offRideStatusChange === 'function') {
+        WebSocketService.offRideStatusChange();
+      }
+      if (typeof WebSocketService.offRideMatched === 'function') {
+        WebSocketService.offRideMatched();
+      }
+      return;
+    }
+    
     fetchActiveRide();
     
-    // Listen for ride status changes
-    WebSocketService.onRideStatusChange((data) => {
-      console.log('[RideContext] Ride status changed:', data);
-      if (activeRide && activeRide.id === data.rideId) {
-        setActiveRide({ ...activeRide, status: data.status });
-      }
-    });
+    // handlers use functional updates to avoid stale closures
+    const handleStatusChange = (data: any) => {
+      setActiveRide(prev => {
+        if (prev && prev.id === data.rideId) {
+          return { ...prev, status: data.status };
+        }
+        return prev;
+      });
+    };
 
-    // Listen for ride matched
-    WebSocketService.onRideMatched((data) => {
-      console.log('[RideContext] Ride matched:', data);
+    const handleRideMatched = () => {
       fetchActiveRide(); // Refresh ride details
-    });
+    };
+
+    if (typeof WebSocketService.onRideStatusChange === 'function') {
+      WebSocketService.onRideStatusChange(handleStatusChange);
+    }
+    if (typeof WebSocketService.onRideMatched === 'function') {
+      WebSocketService.onRideMatched(handleRideMatched);
+    }
 
     return () => {
-      WebSocketService.offRideStatusChange();
+      if (typeof WebSocketService.offRideStatusChange === 'function') {
+        WebSocketService.offRideStatusChange(handleStatusChange);
+      }
+      if (typeof WebSocketService.offRideMatched === 'function') {
+        WebSocketService.offRideMatched(handleRideMatched);
+      }
     };
-  }, []);
+  }, [isAuthenticated, fetchActiveRide]);
 
   const requestRide = async (data: RideRequest): Promise<Ride> => {
     try {
@@ -91,22 +133,6 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     } finally {
       setIsLoadingRide(false);
-    }
-  };
-
-  const fetchActiveRide = async () => {
-    try {
-      const ride = await RideService.getActiveRide();
-      setActiveRide(ride);
-      
-      if (ride) {
-        // Join ride room for real-time updates
-        WebSocketService.joinRide(ride.id);
-      }
-    } catch (error) {
-      // Silently fail if ride service not available yet
-      console.warn('[RideContext] Ride service not available:', error);
-      setActiveRide(null);
     }
   };
 

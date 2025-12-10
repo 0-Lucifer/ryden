@@ -1,25 +1,7 @@
-const { pgPool, redisClient } = require('../shared/database');
-const { calculateFare, generateReferenceId, calculateDistance } = require('../shared/utils');
 const Joi = require('joi');
-
-// Validation schemas
-const requestRideSchema = Joi.object({
-  pickupLocation: Joi.object({
-    address: Joi.string().required(),
-    latitude: Joi.number().required(),
-    longitude: Joi.number().required(),
-  }).required(),
-  dropoffLocation: Joi.object({
-    address: Joi.string().required(),
-    latitude: Joi.number().required(),
-    longitude: Joi.number().required(),
-  }).required(),
-  vehicleType: Joi.string().valid('bike', 'car_mini', 'car_sedan', 'car_premium').required(),
-  passengers: Joi.number().min(1).max(4).default(1),
-  scheduledTime: Joi.date().optional(),
-  paymentMethod: Joi.string().valid('cash', 'bkash', 'nagad', 'rocket', 'wallet').default('cash'),
-  notes: Joi.string().optional(),
-});
+const { pgPool, redisClient } = require('../../../shared/database');
+const { errorHandler } = require('../../../shared/middleware');
+const utils = require('../../../shared/utils');
 
 exports.requestRide = async (req, res, next) => {
   try {
@@ -186,7 +168,7 @@ exports.getActiveRide = async (req, res, next) => {
               d.first_name as driver_first_name, d.last_name as driver_last_name,
               d.phone as driver_phone, d.profile_image_url as driver_image,
               d.rating as driver_rating,
-              dp.vehicle_make, dp.vehicle_model, dp.vehicle_color, dp.vehicle_plate
+              dp.vehicle_model, dp.vehicle_color, dp.vehicle_number
        FROM rides r
        LEFT JOIN users d ON r.driver_id = d.id
        LEFT JOIN driver_profiles dp ON r.driver_id = dp.user_id
@@ -221,10 +203,9 @@ exports.getActiveRide = async (req, res, next) => {
         image: ride.driver_image,
         rating: parseFloat(ride.driver_rating),
         vehicle: {
-          make: ride.vehicle_make,
           model: ride.vehicle_model,
           color: ride.vehicle_color,
-          plate: ride.vehicle_plate,
+          number: ride.vehicle_number,
         },
       } : null,
       vehicleType: ride.vehicle_type,
@@ -415,7 +396,7 @@ exports.searchOffers = async (req, res, next) => {
     let query = `
       SELECT ro.*, 
              u.first_name, u.last_name, u.profile_image_url, u.rating,
-             dp.vehicle_make, dp.vehicle_model, dp.vehicle_color, dp.vehicle_plate
+             dp.vehicle_model, dp.vehicle_color, dp.vehicle_number
       FROM ride_offers ro
       JOIN users u ON ro.driver_id = u.id
       LEFT JOIN driver_profiles dp ON ro.driver_id = dp.user_id
@@ -473,10 +454,9 @@ exports.searchOffers = async (req, res, next) => {
         departureTime: offer.departure_time,
         vehicleType: offer.vehicle_type,
         vehicle: {
-          make: offer.vehicle_make,
           model: offer.vehicle_model,
           color: offer.vehicle_color,
-          plate: offer.vehicle_plate,
+          number: offer.vehicle_number,
         },
         availableSeats: offer.available_seats,
         pricePerSeat: parseFloat(offer.price_per_seat),
@@ -1118,9 +1098,8 @@ exports.getMyBookings = async (req, res, next) => {
       status: b.status,
       vehicle: {
         type: b.vehicle_type,
-        make: b.vehicle_make,
         model: b.vehicle_model,
-        plate: b.vehicle_plate,
+        number: b.vehicle_number,
       },
     }));
 

@@ -46,7 +46,9 @@ services:
 
   # API Gateway
   gateway:
-    build: ./gateway
+    build:
+      context: .
+      dockerfile: ./gateway/Dockerfile
     container_name: ryden-gateway
     ports:
       - "3000:3000"
@@ -88,15 +90,11 @@ services:
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - JWT_EXPIRES_IN=1h
       - REFRESH_TOKEN_EXPIRES_IN=7d
-      # Email verification - MailerSend SMTP
-      - SMTP_HOST=smtp.mailersend.net
-      - SMTP_PORT=587
-      - SMTP_USER=MS_tHQFs2@test-q3enl6k6rn542vwr.mlsender.net
-      - SMTP_PASS=mssp.K04vDn5.jy7zpl911o5g5vx6.CoBxKBz
-      - SMTP_FROM=Ryden Campus <MS_tHQFs2@test-q3enl6k6rn542vwr.mlsender.net>
+      # Firebase Admin SDK
+      - FIREBASE_PROJECT_ID=ryden-df752
+      - FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@ryden-df752.iam.gserviceaccount.com
+      - FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCg3SX/tekn8R4D\nlte6xjWYA32167UzG4d09YZ2Jcnh1hbUoSyQ1cT6ovDuHWmswkwgiuk3lzKXBXTq\nbppURmj7/EDJrw8m48Iw3k6FNycknl6WVE2Z2dOwchAaU8rjTddlPj5VZyy/SYPR\nEfNHG/8+q6ZfYA6rg4byN0XdwXdIyDlRZHs1i5Lgw2cQufSo7vp193efd06N//Ub\n8PulS8NGEBN1tBVKORXzVIy/QraKhw4AxITyEMVbA4axfs4WFpbqGdRzVK34kFer\n181Cr+2uJu7Ph3KQmPIqmsYgAwmxIWxZxT/yZ1gUm6bwmtGqd4grl/nhHljo8/h2\nYHfvwBgFAgMBAAECggEACP/LiWj8Ldovq1RmpdyYJknuYB1bRLcB4Ul/B+Bd++lb\nMPKsqJRHnHHod+8N+LaMmwwft0FueMO7DQZk/IP33uj3bZECkFK7jA+pEDYhVXYa\npTRQJw7oPdMTvYqkgLTbxkkwztxNGjfFomOWWuBhFiN01O8YbatCWGM+iwUGDvyL\nJ4ld9034p/smISj8L4fUN8wKXyAOpYiDzwJCLscYdBZ26XhUkRUmJWZYac+tIzFg\ndH/+4vMaEkhhL33z51Cy44WChVnXrh7g7tMerBj6ZOCtk59b15CzA2AyeKEnyQX+\n0yC4eQ9/7OnuuiLtU1Us0Hp6t53EphMJdTNvc9a9nQKBgQDSygCp40D1vMtKUGJR\nRZ1ftr7OyIWTiGw2Is84dPZgWFDmoDPPLpOfDOh3sqfWh3CeKQBNXv+9iBA/0XPk\nPjthCOb41ASttBbEMR7nMSCzVdrXyQASZysdkTO2EGMsw8Sh+l7ZcMVZaCFW8nZX\nf2VBmOksvbacYTTJXYzCMg8f7wKBgQDDXdq9g6N05tEGsEBczk/sSBUnU6rf5Psn\n0CPj7xkWpOzu+VnGUtPbyA+N83wzz4VvmG1r5nAVY8IWcv2GrHQE0v8XeL52FloI\n8ei3ktRAAsHUNKn/2xg7VEL5YVJsAimG0gl96bJPvAMTxqIDQyA69bJfOlIApLkA\nk8WtFj0TSwKBgCUZttowDIv0CdfvpA5n8VYaZSUiOBiKh3lT0SM/uumkQcEF63iI\n2yTAcd43jMD+n7zGvK3hjaO/YhTJedtvdKYUmgqrzpMAQo2Pk7/fbsEB2H3oe+HB\nVN5kYzSlV79WSbK0zaL57VJaOJwEGv41hw3vqwLb9Vs65L6Yf6DijLTzAoGBAIrO\n0G/+a9DPfoxmBhTqcVbMEFuU0r+pjdlHxXhZlVXFcKKKgAKtLuHlT0foS8L0Gzai\n8nvLiq9n5arVoNRjCzuyPpSKsahtUSMx3cswg6XHT7hagr7LCHh+8ecGAu3Cy4aD\nDUNtG8gTKYyPgOUYeHnrwARxB3p1jwyd8cF9H3/pAoGBALNBfI0vIseKHSBqJJnQ\nmabnxEh6XZQ0dH8w2+s2jf7Iw9djP5JtgOTRASR/D7/y1nQNqLMWTy1CdSL5aSES\n9s/3hfeWzlEEs9j2fifNdjlWy7/8lilx8ZFP76qph0r3bR+9GVO6MK9S52RfUYwj\n1GGyQ0cYiYT9rnceS3OvKAog\n-----END PRIVATE KEY-----\n
       - APP_URL=http://localhost:8081
-      - EMAIL_VERIFICATION_SECRET=email_verification_secret_key_change_in_production_min_32_chars_long
-      - EMAIL_VERIFICATION_EXPIRES=24h
       # Optional: Twilio for SMS verification
       - TWILIO_ENABLED=false
       - TWILIO_ACCOUNT_SID=your_twilio_account_sid
@@ -122,6 +120,7 @@ services:
       - PORT=3002
       - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
       - REDIS_URL=redis://:ryden123@redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - AWS_S3_BUCKET=ryden-documents
       - AWS_ACCESS_KEY_ID=your_aws_key
       - AWS_SECRET_ACCESS_KEY=your_aws_secret
@@ -145,6 +144,7 @@ services:
       - PORT=3003
       - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
       - REDIS_URL=redis://:ryden123@redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - LOCATION_SERVICE_URL=http://location-service:3004
       - NOTIFICATION_SERVICE_URL=http://notification-service:3006
       - BASE_FARE=50
@@ -170,6 +170,7 @@ services:
       - NODE_ENV=development
       - PORT=3004
       - REDIS_URL=redis://:ryden123@redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - GOOGLE_MAPS_API_KEY=your_google_maps_key
       - NSU_CAMPUS_LAT=23.8103
       - NSU_CAMPUS_LNG=90.4125
@@ -192,6 +193,7 @@ services:
       - NODE_ENV=development
       - PORT=3005
       - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - BKASH_APP_KEY=your_bkash_app_key
       - BKASH_APP_SECRET=your_bkash_app_secret
       - BKASH_USERNAME=your_bkash_username
@@ -221,6 +223,7 @@ services:
       - NODE_ENV=development
       - PORT=3006
       - MONGODB_URL=mongodb://ryden:ryden123@mongodb:27017/ryden_notifications?authSource=admin
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - FIREBASE_PROJECT_ID=your_firebase_project_id
       - FIREBASE_PRIVATE_KEY=your_firebase_private_key
       - FIREBASE_CLIENT_EMAIL=your_firebase_client_email
@@ -267,6 +270,7 @@ services:
       - NODE_ENV=development
       - PORT=3008
       - DATABASE_URL=postgresql://ryden:ryden123@postgres:5432/ryden_db
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - USER_SERVICE_URL=http://user-service:3002
       - NOTIFICATION_SERVICE_URL=http://notification-service:3006
       - LOW_RATING_THRESHOLD=3.0

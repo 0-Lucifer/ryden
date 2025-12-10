@@ -10,16 +10,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-async function sendVerificationEmail(toEmail, token) {
-  const appUrl = process.env.APP_URL || 'http://localhost:8081';
-  const link = `${appUrl}/verify-email?token=${encodeURIComponent(token)}`;
+async function sendVerificationEmail(toEmail, otp) {
   const mailOptions = {
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: toEmail,
     subject: 'Verify your NSU email for Ryden',
-    html: `<p>Please verify your email by clicking the link below:</p>
-           <p><a href="${link}">${link}</a></p>
-           <p>This link expires in ${process.env.EMAIL_VERIFICATION_EXPIRES || '24h'}.</p>`,
+    html: `<div style="font-family: Arial, sans-serif; padding: 20px;">
+             <h2>Welcome to Ryden!</h2>
+             <p>Please use the following One-Time Password (OTP) to verify your email address:</p>
+             <h1 style="color: #4F46E5; letter-spacing: 5px;">${otp}</h1>
+             <p>This code expires in 24 hours.</p>
+             <p>If you didn't request this, please ignore this email.</p>
+           </div>`,
   };
 
   const info = await transporter.sendMail(mailOptions);

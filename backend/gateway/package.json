@@ -1,5 +1,5 @@
 {
-  "name": "ryden-api-gateway",
+  "name": "ryden-gateway",
   "version": "1.0.0",
   "description": "API Gateway for Ryden microservices",
   "main": "index.js",
@@ -8,12 +8,11 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "axios": "^1.4.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "jsonwebtoken": "^9.0.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "socket.io": "^4.7.2"
   }
 }

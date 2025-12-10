@@ -1,4 +1,7 @@
 const mongoose = require('mongoose');
+const { pgPool } = require('../../../shared/database');
+const { errorHandler } = require('../../../shared/middleware');
+const utils = require('../../../shared/utils');
 
 const notificationSchema = new mongoose.Schema({
   userId: String,

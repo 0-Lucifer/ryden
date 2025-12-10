@@ -1,3 +1,4 @@
+import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
@@ -7,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const [pickup, setPickup] = useState('');
   const [destination, setDestination] = useState('');
-
+  const { user } = useAuth();
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
@@ -17,7 +18,7 @@ export default function HomeScreen() {
         <View className="px-6 py-8 bg-emerald-600">
           <View className="flex-row items-center justify-between mb-4">
             <View className="flex-1">
-              <Text className="text-white text-2xl font-bold mb-1">Hello Nawmee! 👋</Text>
+              <Text className="text-white text-2xl font-bold mb-1">Hello {user?.firstName}! 👋</Text>
               <Text className="text-emerald-100 text-sm">Ready for your next ride from NSU?</Text>
             </View>
             <TouchableOpacity className="w-12 h-12 bg-emerald-700 rounded-full items-center justify-center">

@@ -1,8 +1,8 @@
 const express = require('express');
-const helmet = require('helmet');
 const cors = require('cors');
-const { pgPool } = require('./shared/database');
-const { requestLogger, errorHandler, authenticateToken } = require('./shared/middleware');
+const helmet = require('helmet');
+const { pgPool, connectRedis, redisClient } = require('../../shared/database');
+const { requestLogger, errorHandler, authenticateToken } = require('../../shared/middleware');
 const paymentRoutes = require('./routes/payment.routes');
 
 const app = express();

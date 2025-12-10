@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('./controllers/notification.controller');
+const ctrl = require('../controllers/notification.controller');
+const { authenticateToken, errorHandler } = require('../../../shared/middleware');
 
 router.post('/send', ctrl.sendNotification);
 router.get('/history', ctrl.getHistory);

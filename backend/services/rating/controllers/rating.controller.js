@@ -1,4 +1,6 @@
-const { pgPool } = require('./../../shared/database');
+const { pgPool } = require('../../../shared/database');
+const { errorHandler } = require('../../../shared/middleware');
+const utils = require('../../../shared/utils');
 
 exports.rateRide = async (req,res,next)=>{ try { const { rideId, toUserId, rating, review } = req.body; await pgPool.query('INSERT INTO ratings (ride_id, from_user_id, to_user_id, rating, review) VALUES ($1,$2,$3,$4,$5)', [rideId, req.user.id, toUserId, rating, review]); res.json({ success:true }); } catch(e){ next(e);} };
 

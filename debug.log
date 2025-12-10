@@ -1,0 +1,42 @@
+== Info: Host localhost:3000 was resolved.
+== Info: IPv6: ::1
+== Info: IPv4: 127.0.0.1
+== Info:   Trying [::1]:3000...
+== Info: Established connection to localhost (::1 port 3000) from ::1 port 50643 
+== Info: using HTTP/1.x
+=> Send header, 153 bytes (0x99)
+0000: POST /auth/check-availability HTTP/1.1
+0028: Host: localhost:3000
+003e: User-Agent: curl/8.16.0
+0057: Accept: */*
+0064: Content-Type: application/json
+0084: Content-Length: 2
+0097: 
+=> Send data, 2 bytes (0x2)
+0000: {\
+== Info: upload completely sent off: 2 bytes
+<= Recv header, 36 bytes (0x24)
+0000: HTTP/1.1 500 Internal Server Error
+<= Recv header, 23 bytes (0x17)
+0000: X-Powered-By: Express
+<= Recv header, 32 bytes (0x20)
+0000: Access-Control-Allow-Origin: *
+<= Recv header, 47 bytes (0x2f)
+0000: Content-Type: application/json; charset=utf-8
+<= Recv header, 20 bytes (0x14)
+0000: Content-Length: 33
+<= Recv header, 42 bytes (0x2a)
+0000: ETag: W/"21-u8tno/8IdqEY6PFcopkQe0syfE4"
+<= Recv header, 37 bytes (0x25)
+0000: Date: Wed, 10 Dec 2025 14:29:41 GMT
+<= Recv header, 24 bytes (0x18)
+0000: Connection: keep-alive
+<= Recv header, 23 bytes (0x17)
+0000: Keep-Alive: timeout=5
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 33 bytes (0x21)
+0000: {"error":"Internal server error"}
+== Info: Connection #0 to host localhost:3000 left intact
+== Info: URL rejected: Port number was not a decimal number between 0 and 65535
+== Info: closing connection #-1

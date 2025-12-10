@@ -1,8 +1,10 @@
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
@@ -10,7 +12,12 @@ export default function LoginScreen() {
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const emailInputRef = useRef<any>(null);
+  const passwordInputRef = useRef<any>(null);
   const [errors, setErrors] = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
   const validateForm = (): boolean => {
     let valid = true;
@@ -41,26 +48,90 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validateForm()) return;
 
+    setLoading(true);
     try {
+      if (errorModalVisible) {
+        // Prevent navigation while modal is open
+        return;
+      }
       await login({ email: email.trim(), password });
       // Navigation will be handled automatically after successful login
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('[Login] Error:', error);
+      let errorMessage = error?.message || 'Login failed. Please check your credentials and try again.';
+      // Customize Firebase invalid credential error
       
-      const errorMessage = error?.message || 'Login failed. Please check your credentials and try again.';
-      
-      Alert.alert(
-        'Login Failed',
-        errorMessage,
-        [{ text: 'OK', style: 'default' }]
-      );
+        // Map Firebase user-not-found -> inline email validation
+        if (
+          error?.code === 'auth/user-not-found' ||
+          errorMessage.includes('user-not-found') ||
+          error?.status === 404 ||
+          error?.data?.needsRegistration === true ||
+          (error?.data && ((error.data.error || '').toString().toLowerCase().includes('user not found')))
+        ) {
+          setErrorModalVisible(false);
+          setErrors((prev) => ({ ...prev, email: 'No account found with that email.' }));
+          // focus the email field on web/mobile
+          try { emailInputRef.current?.focus?.(); } catch { /* ignore */ }
+          return;
+        }
+
+        // Map wrong-password -> inline password validation
+        const normalizedMessage = (errorMessage || '').toLowerCase();
+        const normalizedCode = (error?.code || '').toLowerCase();
+        const isWrongPassword = (
+          normalizedCode === 'auth/wrong-password' ||
+          normalizedMessage.includes('wrong-password') ||
+          normalizedMessage.includes('wrong password') ||
+          normalizedMessage.includes('invalid password') ||
+          normalizedMessage.includes('password is invalid') ||
+          (error?.status === 401 && normalizedMessage.includes('password')) ||
+          (error?.data && (error.data?.errors?.password || '').toString().toLowerCase().includes('password'))
+        );
+        if (isWrongPassword) {
+          setErrorModalVisible(false);
+          setErrors((prev) => ({ ...prev, password: 'Password is incorrect.' }));
+          try { passwordInputRef.current?.focus?.(); } catch { /* ignore */ }
+          return;
+        }
+
+        // Old mapping for invalid credential -> show modal
+        if (error?.code === 'auth/invalid-credential' || errorMessage.includes('auth/invalid-credential')) {
+          errorMessage = 'Invalid email or password. Please try again.';
+        }
+      console.log('[Login] Showing error modal:', errorMessage);
+      setErrorModalMessage(errorMessage);
+      setErrorModalVisible(true);
+    } finally {
+      if (!loading) setLoading(false);
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-emerald-600">
       <StatusBar style="light" />
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+        style={{ zIndex: 9999 }}
+      >
+        <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999 }}>
+          <ThemedView style={{ backgroundColor: 'white', padding: 24, borderRadius: 16, minWidth: 280, alignItems: 'center', elevation: 10 }}>
+            <ThemedText type="title" style={{ color: '#d32f2f', marginBottom: 12 }}>Login Failed</ThemedText>
+            <ThemedText style={{ fontSize: 16, marginBottom: 24, color: '#333', textAlign: 'center' }}>{errorModalMessage}</ThemedText>
+            <TouchableOpacity
+              style={{ backgroundColor: '#10b981', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24 }}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <ThemedText type="link" style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>OK</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </ThemedView>
+      </Modal>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -93,6 +164,7 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={email}
+                  ref={emailInputRef}
                   onChangeText={(text) => {
                     setEmail(text);
                     setErrors({ ...errors, email: '' });
@@ -113,6 +185,7 @@ export default function LoginScreen() {
                   placeholderTextColor="#9ca3af"
                   secureTextEntry
                   value={password}
+                  ref={passwordInputRef}
                   onChangeText={(text) => {
                     setPassword(text);
                     setErrors({ ...errors, password: '' });
@@ -124,11 +197,11 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity 
-              className={`py-4 rounded-full mb-4 ${isLoading ? 'bg-emerald-400' : 'bg-emerald-600'}`}
+              className={`py-4 rounded-full mb-4 ${loading ? 'bg-emerald-400' : 'bg-emerald-600'}`}
               onPress={handleLogin}
-              disabled={isLoading}
+              disabled={loading}
             >
-              {isLoading ? (
+              {loading ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
                 <Text className="text-white text-center text-base font-bold">Log In →</Text>

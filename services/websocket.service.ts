@@ -39,36 +39,81 @@ class WebSocketService {
     const token = await AsyncStorage.getItem('auth_token');
 
     if (!token) {
+      this.isConnecting = false;
       console.error('[WebSocket] No auth token available');
-      this.isConnecting = false;
-      return;
+      throw new Error('No auth token available');
     }
 
-    try {
-      this.socket = io(API_CONFIG.API_GATEWAY, {
-        auth: { token },
-        transports: ['websocket'],
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        reconnectionAttempts: this.maxReconnectAttempts,
-      });
+    // Create socket
+    this.socket = io(API_CONFIG.API_GATEWAY, {
+      auth: { token },
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: this.maxReconnectAttempts,
+    });
 
-      this.setupEventListeners();
-      console.log('[WebSocket] Connecting...');
-    } catch (error) {
-      console.error('[WebSocket] Connection failed:', error);
+    // Setup listeners that don't interfere with connect/connect_error promise handling
+    this.setupEventListeners();
+
+    console.log('[WebSocket] Connecting...');
+
+    // Wait until connected or errored
+    return new Promise((resolve, reject) => {
+      if (!this.socket) {
+        this.isConnecting = false;
+        return reject(new Error('Socket not initialized'));
+      }
+
+      const onConnect = () => {
+        this.socket?.off('connect_error', onError);
+        this.isConnecting = false;
+        resolve();
+      };
+
+      const onError = (err: any) => {
+        this.socket?.off('connect', onConnect);
+        this.isConnecting = false;
+        // Pass the actual Error message from the server (e.g., 'Invalid or expired token')
+        reject(err instanceof Error ? err : new Error(err?.message || 'WebSocket connection error'));
+      };
+
+      // Attach temporary handlers
+      this.socket.on('connect', onConnect);
+      this.socket.on('connect_error', onError);
+
+      // Timeout fallback
+      const timeout = setTimeout(() => {
+        this.socket?.off('connect', onConnect);
+        this.socket?.off('connect_error', onError);
+        this.isConnecting = false;
+        reject(new Error('WebSocket connection timeout'));
+      }, 10000);
+
+      // Clear timeout on resolution/rejection
+      const finalize = () => clearTimeout(timeout);
+      // Wrap resolve/reject to finalize
+      const originalResolve = resolve;
+      const originalReject = reject;
+    }).finally(() => {
       this.isConnecting = false;
-    }
+    });
   }
 
   // Disconnect from WebSocket server
   disconnect(): void {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-      console.log('[WebSocket] Disconnected');
-    }
+    if (!this.socket) return;
+
+    // Stop reconnection attempts before disconnecting to avoid automatic reconnects after logout.
+    this.socket.io.opts.reconnection = false;
+    this.socket.removeAllListeners();
+    this.socket.disconnect();
+    this.socket.close();
+    this.socket = null;
+    this.isConnecting = false;
+    this.reconnectAttempts = 0;
+    console.log('[WebSocket] Disconnected');
   }
 
   // Setup event listeners
@@ -103,19 +148,57 @@ class WebSocketService {
   }
 
   // Join a ride room for real-time updates
-  joinRide(rideId: string): void {
-    if (this.socket?.connected) {
-      this.socket.emit('join_ride', { rideId });
-      console.log(`[WebSocket] Joined ride room: ${rideId}`);
-    }
+  async joinRide(rideId: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.socket?.connected) {
+        console.log('[WebSocket] Not connected, cannot join ride');
+        resolve(false);
+        return;
+      }
+
+      this.socket.emit('join_ride', { rideId }, (response: any) => {
+        if (response?.success) {
+          console.log(`[WebSocket] Successfully joined ride room: ${rideId}`);
+          resolve(true);
+        } else {
+          console.log(`[WebSocket] Failed to join ride room: ${rideId}`);
+          resolve(false);
+        }
+      });
+
+      // Timeout fallback
+      setTimeout(() => {
+        console.log(`[WebSocket] Join ride timeout for: ${rideId}`);
+        resolve(false);
+      }, 5000);
+    });
   }
 
   // Leave a ride room
-  leaveRide(rideId: string): void {
-    if (this.socket?.connected) {
-      this.socket.emit('leave_ride', { rideId });
-      console.log(`[WebSocket] Left ride room: ${rideId}`);
-    }
+  async leaveRide(rideId: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.socket?.connected) {
+        console.log('[WebSocket] Not connected, cannot leave ride');
+        resolve(false);
+        return;
+      }
+
+      this.socket.emit('leave_ride', { rideId }, (response: any) => {
+        if (response?.success) {
+          console.log(`[WebSocket] Successfully left ride room: ${rideId}`);
+          resolve(true);
+        } else {
+          console.log(`[WebSocket] Failed to leave ride room: ${rideId}`);
+          resolve(false);
+        }
+      });
+
+      // Timeout fallback
+      setTimeout(() => {
+        console.log(`[WebSocket] Leave ride timeout for: ${rideId}`);
+        resolve(false);
+      }, 5000);
+    });
   }
 
   // Send location update (for drivers)
@@ -181,25 +264,40 @@ class WebSocketService {
   }
 
   // Remove ride status listener
-  offRideStatusChange(): void {
+  offRideStatusChange(callback?: (data: { rideId: string; status: string }) => void): void {
     if (this.socket) {
-      this.socket.off('ride_status_changed');
+      if (callback) {
+        this.socket.off('ride_status_changed', callback);
+      } else {
+        this.socket.off('ride_status_changed');
+      }
     }
   }
-
-  // Listen for ride matched event
-  onRideMatched(callback: (data: any) => void): void {
-    if (this.socket) {
-      this.socket.on('ride_matched', callback);
-    }
-  }
-
-  // Listen for driver arrival
-  onDriverArriving(callback: (data: { rideId: string; eta: number }) => void): void {
-    if (this.socket) {
-      this.socket.on('driver_arriving', callback);
-    }
-  }
+ 
+   // Listen for ride matched event
+   onRideMatched(callback: (data: any) => void): void {
+     if (this.socket) {
+       this.socket.on('ride_matched', callback);
+     }
+   }
+ 
+   // Remove ride matched listener
+   offRideMatched(callback?: (data: any) => void): void {
+     if (this.socket) {
+       if (callback) {
+         this.socket.off('ride_matched', callback);
+       } else {
+         this.socket.off('ride_matched');
+       }
+     }
+   }
+ 
+   // Listen for driver arrival
+   onDriverArriving(callback: (data: { rideId: string; eta: number }) => void): void {
+     if (this.socket) {
+       this.socket.on('driver_arriving', callback);
+     }
+   }
 
   // Get connection status
   isConnected(): boolean {

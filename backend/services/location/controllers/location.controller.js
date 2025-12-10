@@ -1,6 +1,7 @@
-const { redisClient, pgPool } = require('./../../shared/database');
-const { calculateDistance } = require('./../../shared/utils');
 const Joi = require('joi');
+const { pgPool } = require('../../../shared/database');
+const { errorHandler } = require('../../../shared/middleware');
+const utils = require('../../../shared/utils');
 
 // KEY namespaces
 const DRIVER_GEO_KEY = 'driver:geo';

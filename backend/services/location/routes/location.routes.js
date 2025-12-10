@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('./controllers/location.controller');
+const ctrl = require('../controllers/location.controller');
+const { authenticateToken, errorHandler } = require('../../../shared/middleware');
 
 router.get('/nearby-drivers', ctrl.getNearbyDrivers);
 router.post('/update', ctrl.updateDriverLocation);

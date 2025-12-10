@@ -1,7 +1,9 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const { pgPool } = require('./../../shared/database');
+const { pgPool } = require('../../../shared/database');
+const { errorHandler } = require('../../../shared/middleware');
+const utils = require('../../../shared/utils');
 const Joi = require('joi');
 
 // Configure multer for file uploads
@@ -34,53 +36,29 @@ const upload = multer({
 
 exports.getProfile = async (req, res, next) => {
   try {
-    const userId = req.params.id || req.user.id;
+    const userId = req.user.id;
+    const result = await pgPool.query('SELECT id, email, first_name, last_name, phone FROM users WHERE id = $1', [userId]);
     
-    const result = await pgPool.query(
-      `SELECT u.id, u.email, u.phone, u.first_name, u.last_name, u.role, 
-              u.student_id, u.university, u.profile_image_url, u.rating, u.total_rides,
-              u.created_at,
-              dp.vehicle_type, dp.vehicle_make, dp.vehicle_model, dp.vehicle_color, 
-              dp.vehicle_plate, dp.license_number, dp.status as driver_status
-       FROM users u
-       LEFT JOIN driver_profiles dp ON u.id = dp.user_id
-       WHERE u.id = $1`,
-      [userId]
-    );
-    
-    if (!result.rows.length) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    const user = result.rows[0];
-    const profile = {
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      role: user.role,
-      studentId: user.student_id,
-      university: user.university,
-      profileImage: user.profile_image_url,
-      rating: parseFloat(user.rating),
-      totalRides: user.total_rides,
-      createdAt: user.created_at,
-    };
-
-    if (user.vehicle_type) {
-      profile.driver = {
-        vehicleType: user.vehicle_type,
-        vehicleMake: user.vehicle_make,
-        vehicleModel: user.vehicle_model,
-        vehicleColor: user.vehicle_color,
-        vehiclePlate: user.vehicle_plate,
-        licenseNumber: user.license_number,
-        status: user.driver_status,
-      };
+exports.getUserById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await pgPool.query('SELECT id, email, first_name, last_name, phone FROM users WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
-
-    res.json({ success: true, data: profile });
+    
+    res.json(result.rows[0]);
   } catch (error) {
     next(error);
   }

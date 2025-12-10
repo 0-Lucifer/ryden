@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('./controllers/user.controller');
+const ctrl = require('../controllers/user.controller');
+const { authenticateToken, errorHandler } = require('../../../shared/middleware');
 
 router.get('/profile', ctrl.getProfile);
 router.get('/profile/:id', ctrl.getProfile);

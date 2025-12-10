@@ -2,9 +2,9 @@
 # Run this after Docker Desktop is installed and running
 
 Write-Host @"
-╔════════════════════════════════════════════════════════════════════════╗
-║              RYDEN PROJECT - SETUP AND RUN SCRIPT                     ║
-╚════════════════════════════════════════════════════════════════════════╝
+================================================================================
+              RYDEN PROJECT - SETUP AND RUN SCRIPT
+================================================================================
 "@ -ForegroundColor Cyan
 
 # Check if Docker is running
@@ -26,7 +26,7 @@ try {
 } catch {
     Write-Host "✗ Docker daemon is not running. Starting Docker Desktop..." -ForegroundColor Yellow
     Start-Process "C:\Program Files\Docker\Docker\Docker.exe"
-    Write-Host "⏳ Waiting for Docker to start (60 seconds)..." -ForegroundColor Cyan
+    Write-Host "Waiting for Docker to start (60 seconds)..." -ForegroundColor Cyan
     Start-Sleep -Seconds 60
 }
 
@@ -40,7 +40,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  - MongoDB: localhost:27017" -ForegroundColor Cyan
     Write-Host "  - Redis: localhost:6379" -ForegroundColor Cyan
     Write-Host "  - API Gateway: localhost:3000" -ForegroundColor Cyan
-    Write-Host "⏳ Waiting for services to initialize (30 seconds)..." -ForegroundColor Yellow
+    Write-Host "Waiting for services to initialize (30 seconds)..." -ForegroundColor Yellow
     Start-Sleep -Seconds 30
 } else {
     Write-Host "✗ Failed to start backend services" -ForegroundColor Red

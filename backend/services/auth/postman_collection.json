@@ -1,0 +1,89 @@
+{
+  "info": {
+    "_postman_id": "ryden-auth-collection-2025",
+    "name": "Ryden Auth API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Check Availability",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"testuser@northsouth.edu\",\n  \"phone\": \"01700000000\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3001/auth/check-availability",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3001",
+          "path": ["auth", "check-availability"]
+        }
+      }
+    },
+    {
+      "name": "Register (Firebase)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\",\n  \"phone\": \"01700000000\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"studentId\": \"123456\",\n  \"university\": \"NorthSouth University\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3001/auth/firebase/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3001",
+          "path": ["auth", "firebase", "register"]
+        }
+      }
+    },
+    {
+      "name": "Login (Firebase)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3001/auth/firebase/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3001",
+          "path": ["auth", "firebase", "login"]
+        }
+      }
+    },
+    {
+      "name": "Send OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"01700000000\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3001/auth/send-otp",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3001",
+          "path": ["auth", "send-otp"]
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('./controllers/payment.controller');
+const ctrl = require('../controllers/payment.controller');
+const { authenticateToken, errorHandler } = require('../../../shared/middleware');
 
 router.get('/methods', ctrl.getMethods);
 router.post('/initiate', ctrl.initiatePayment);

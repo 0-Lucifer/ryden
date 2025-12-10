@@ -1,76 +1,67 @@
+import { firebaseAuth } from '@/config/firebase';
 import { useAuth } from '@/context/AuthContext';
+import AuthService from '@/services/auth.service';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { register, isLoading } = useAuth();
-  const [name, setName] = useState('');
+  const { register, isLoading, clearPendingVerification, pendingVerification, user } = useAuth();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'rider' | 'driver'>('rider');
+  const [studentId, setStudentId] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState({ 
-    name: '', 
-    email: '', 
-    phone: '', 
-    password: '', 
-    confirmPassword: '' 
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isCheckingVerification, setIsCheckingVerification] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ visible: false, title: '', message: '', type: 'info' });
+  const [errors, setErrors] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    studentId: '',
+    password: '',
+    confirmPassword: ''
   });
 
-<<<<<<< HEAD
-  const handleSignup = async () => {
-    console.log('[Signup] Starting signup process');
-    
-    // Validate inputs
-    if (!email || !phone || !name || !password) {
-      console.log('[Signup] Validation failed - missing fields');
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
+  // Show verification modal if user is authenticated but pending verification
+  useEffect(() => {
+    if (pendingVerification && user?.email) {
+      console.log('[Signup] User has pending verification, showing modal');
+      setRegisteredEmail(user.email);
+      setShowVerificationModal(true);
     }
+  }, [pendingVerification, user]);
 
-    // Split name into firstName and lastName
-    const nameParts = name.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || nameParts[0];
-
-    // Ensure phone has country code
-    const formattedPhone = phone.startsWith('+') ? phone : `+880${phone.replace(/^0/, '')}`;
-
-    console.log('[Signup] Prepared data:', { email, phone: formattedPhone, firstName, lastName });
-
-    try {
-      console.log('[Signup] Calling register...');
-      await register({
-        email: email.trim(),
-        password,
-        phone: formattedPhone,
-        firstName,
-        lastName,
-        role: 'rider'
-      });
-      console.log('[Signup] Registration successful!');
-      // Navigation will be handled by route protection in _layout.tsx
-    } catch (error: any) {
-      console.error('[Signup] Registration failed:', error);
-      Alert.alert('Signup Failed', error.message || 'An error occurred during signup');
-=======
   const validateForm = (): boolean => {
     let valid = true;
-    const newErrors = { name: '', email: '', phone: '', password: '', confirmPassword: '' };
+    const newErrors = { firstName: '', lastName: '', email: '', phone: '', studentId: '', password: '', confirmPassword: '' };
 
-    // Name validation
-    if (!name.trim()) {
-      newErrors.name = 'Full name is required';
+    // First name validation
+    if (!firstName.trim()) {
+      newErrors.firstName = 'First name is required';
       valid = false;
-    } else if (name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
+    } else if (firstName.trim().length < 2) {
+      newErrors.firstName = 'First name must be at least 2 characters';
+      valid = false;
+    }
+
+    // Last name validation
+    if (!lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
       valid = false;
     }
 
@@ -89,6 +80,15 @@ export default function SignupScreen() {
       valid = false;
     } else if (phone.replace(/\D/g, '').length < 10) {
       newErrors.phone = 'Please enter a valid phone number';
+      valid = false;
+    }
+
+    // Student ID validation
+    if (!studentId.trim()) {
+      newErrors.studentId = 'Student ID is required';
+      valid = false;
+    } else if (studentId.trim().length < 5) {
+      newErrors.studentId = 'Please enter a valid student ID';
       valid = false;
     }
 
@@ -121,34 +121,185 @@ export default function SignupScreen() {
     if (!validateForm()) return;
 
     try {
-      await register({
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.replace(/\D/g, ''),
-        password,
-        role,
-        university: 'North South University',
-      });
+      // First check if email and phone are available
+      const availability = await AuthService.checkAvailability(
+        email.trim(),
+        phone.replace(/\D/g, '')
+      );
+
+      if (!availability.available && availability.errors) {
+        const newErrors = { ...errors };
+        const errorMessages: string[] = [];
+        
+        if (availability.errors.email) {
+          newErrors.email = availability.errors.email;
+          errorMessages.push(availability.errors.email);
+        }
+        if (availability.errors.phone) {
+          newErrors.phone = availability.errors.phone;
+          errorMessages.push(availability.errors.phone);
+        }
+        setErrors(newErrors);
+        
+        // Show popup alert
+        const alertMessage = errorMessages.join('\n');
+        setAlertModal({ visible: true, title: 'Registration Error', message: alertMessage, type: 'error' });
+        return;
+      }
+
+      // Step 1: Create user in Firebase Auth
+      console.log('[Signup] Creating Firebase user...');
+      const userCredential = await firebaseAuth.createUser(email.trim(), password);
+      const firebaseUser = userCredential.user;
       
-      // Navigate to home after successful signup
-      router.replace('/(tabs)');
+      // Step 2: Send verification email via Firebase
+      console.log('[Signup] Sending verification email via Firebase...');
+      await firebaseAuth.sendVerificationEmail(firebaseUser);
+      
+      // Step 3: Get Firebase ID token
+      const firebaseToken = await firebaseUser.getIdToken();
+      
+      // Step 4: Register with backend using Firebase token
+      console.log('[Signup] Registering with backend...');
+      const response = await AuthService.firebaseRegister({
+        firebaseToken,
+        phone: phone.replace(/\D/g, ''),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        studentId: studentId.trim().toUpperCase(),
+        university: 'North South University',
+        referralCode: referralCode.trim().toUpperCase() || undefined,
+      });
+
+      if (response.success) {
+        // Show verification modal
+        setRegisteredEmail(email.trim());
+        setShowVerificationModal(true);
+      }
     } catch (error: any) {
       console.error('[Signup] Error:', error);
+
+      // Handle Firebase specific errors
+      if (error?.code) {
+        let errorMessage = 'Signup failed. Please try again.';
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            errorMessage = 'This email is already registered. Please login instead.';
+            setErrors({ ...errors, email: errorMessage });
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'Please enter a valid email address.';
+            setErrors({ ...errors, email: errorMessage });
+            break;
+          case 'auth/weak-password':
+            errorMessage = 'Password is too weak. Please use a stronger password.';
+            setErrors({ ...errors, password: errorMessage });
+            break;
+          default:
+            errorMessage = error.message || 'Signup failed. Please try again.';
+        }
+        setAlertModal({ visible: true, title: 'Signup Failed', message: errorMessage, type: 'error' });
+        return;
+      }
+
+      // Handle specific field errors from backend
+      if (error?.field) {
+        const newErrors = { ...errors };
+        if (error.field === 'email') {
+          newErrors.email = error.error || 'Email already registered';
+        } else if (error.field === 'phone') {
+          newErrors.phone = error.error || 'Phone number already registered';
+        }
+        setErrors(newErrors);
+        return;
+      }
+
+      const errorMessage = error?.message || error?.error || 'Signup failed. Please try again.';
+      setAlertModal({ visible: true, title: 'Signup Failed', message: errorMessage, type: 'error' });
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    // With Firebase, we check if email is verified by reloading the user
+    setIsCheckingVerification(true);
+    try {
+      // Reload the Firebase user to get updated verification status
+      const firebaseUser = await firebaseAuth.reloadUser();
       
-      const errorMessage = error?.message || 'Signup failed. Please try again.';
-      
-      Alert.alert(
-        'Signup Failed',
-        errorMessage,
-        [{ text: 'OK', style: 'default' }]
-      );
->>>>>>> 1139c3b (feat: add email verification utility and setup scripts)
+      if (firebaseUser?.emailVerified) {
+        // Email is verified - get fresh token and update backend
+        const firebaseToken = await firebaseAuth.getIdToken(true);
+        
+        if (firebaseToken) {
+          // Update verification status in backend
+          await AuthService.checkFirebaseVerification(firebaseToken);
+          
+          // Login with the verified token
+          const response = await AuthService.firebaseLogin(firebaseToken);
+          
+          if (response.success) {
+            await clearPendingVerification();
+            setShowVerificationModal(false);
+            
+            setAlertModal({ 
+              visible: true, 
+              title: 'Success', 
+              message: 'Email verified successfully! Welcome to Ryden.', 
+              type: 'success' 
+            });
+          }
+        }
+      } else {
+        setAlertModal({ 
+          visible: true, 
+          title: 'Not Verified Yet', 
+          message: 'Please click the verification link in your email first, then tap "I\'ve Verified" again.', 
+          type: 'info' 
+        });
+      }
+    } catch (error: any) {
+      console.error('[Signup] Verification Check Error:', error);
+      const errorMessage = error?.message || error?.error || 'Verification check failed. Please try again.';
+      setAlertModal({ visible: true, title: 'Verification Failed', message: errorMessage, type: 'error' });
+    } finally {
+      setIsCheckingVerification(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      const currentUser = firebaseAuth.getCurrentUser();
+      if (currentUser) {
+        await firebaseAuth.sendVerificationEmail(currentUser);
+        setAlertModal({ 
+          visible: true, 
+          title: 'Email Sent', 
+          message: 'A new verification email has been sent. Please check your inbox.', 
+          type: 'success' 
+        });
+      } else {
+        // User needs to sign in again to resend
+        setAlertModal({ 
+          visible: true, 
+          title: 'Session Expired', 
+          message: 'Please sign up again to receive a new verification email.', 
+          type: 'error' 
+        });
+      }
+    } catch (error: any) {
+      console.error('[Signup] Resend verification error:', error);
+      setAlertModal({ 
+        visible: true, 
+        title: 'Error', 
+        message: 'Failed to resend verification email. Please try again.', 
+        type: 'error' 
+      });
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <StatusBar barStyle="dark-content" />
+      <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -160,22 +311,40 @@ export default function SignupScreen() {
               <Text className="text-gray-600">Join Ryden today</Text>
             </View>
 
-            {/* Name Input */}
+            {/* First Name Input */}
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">Full Name</Text>
+              <Text className="text-gray-700 font-semibold mb-2">First Name</Text>
               <TextInput
                 className={`border rounded-lg px-4 py-3 text-gray-900 font-medium ${
-                  errors.name ? 'border-red-500' : 'border-gray-300'
+                  errors.firstName ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="Enter your full name"
-                value={name}
+                placeholder="Enter your first name"
+                value={firstName}
                 onChangeText={(text) => {
-                  setName(text);
-                  if (text.trim()) setErrors({ ...errors, name: '' });
+                  setFirstName(text);
+                  if (text.trim()) setErrors({ ...errors, firstName: '' });
                 }}
                 editable={!isLoading}
               />
-              {errors.name && <Text className="text-red-500 text-sm mt-1">{errors.name}</Text>}
+              {errors.firstName ? <Text className="text-red-500 text-sm mt-1">{errors.firstName}</Text> : null}
+            </View>
+
+            {/* Last Name Input */}
+            <View className="mb-4">
+              <Text className="text-gray-700 font-semibold mb-2">Last Name</Text>
+              <TextInput
+                className={`border rounded-lg px-4 py-3 text-gray-900 font-medium ${
+                  errors.lastName ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter your last name"
+                value={lastName}
+                onChangeText={(text) => {
+                  setLastName(text);
+                  if (text.trim()) setErrors({ ...errors, lastName: '' });
+                }}
+                editable={!isLoading}
+              />
+              {errors.lastName ? <Text className="text-red-500 text-sm mt-1">{errors.lastName}</Text> : null}
             </View>
 
             {/* Email Input */}
@@ -193,9 +362,11 @@ export default function SignupScreen() {
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
                 editable={!isLoading}
               />
-              {errors.email && <Text className="text-red-500 text-sm mt-1">{errors.email}</Text>}
+              {errors.email ? <Text className="text-red-500 text-sm mt-1">{errors.email}</Text> : null}
             </View>
 
             {/* Phone Input */}
@@ -205,16 +376,54 @@ export default function SignupScreen() {
                 className={`border rounded-lg px-4 py-3 text-gray-900 font-medium ${
                   errors.phone ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="Enter your phone number (10+ digits)"
+                placeholder="e.g. 01712345678"
                 value={phone}
                 onChangeText={(text) => {
-                  setPhone(text);
-                  if (text.trim()) setErrors({ ...errors, phone: '' });
+                  // Only allow numbers and common phone characters
+                  const cleaned = text.replace(/[^0-9+\-\s()]/g, '');
+                  setPhone(cleaned);
+                  if (cleaned.trim()) setErrors({ ...errors, phone: '' });
                 }}
                 keyboardType="phone-pad"
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+                inputMode="tel"
                 editable={!isLoading}
               />
-              {errors.phone && <Text className="text-red-500 text-sm mt-1">{errors.phone}</Text>}
+              {errors.phone ? <Text className="text-red-500 text-sm mt-1">{errors.phone}</Text> : null}
+            </View>
+
+            {/* Student ID Input */}
+            <View className="mb-4">
+              <Text className="text-gray-700 font-semibold mb-2">Student ID *</Text>
+              <TextInput
+                className={`border rounded-lg px-4 py-3 text-gray-900 font-medium ${
+                  errors.studentId ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="e.g. 2012345678"
+                value={studentId}
+                onChangeText={(text) => {
+                  setStudentId(text.toUpperCase());
+                  if (text.trim()) setErrors({ ...errors, studentId: '' });
+                }}
+                autoCapitalize="characters"
+                editable={!isLoading}
+              />
+              {errors.studentId ? <Text className="text-red-500 text-sm mt-1">{errors.studentId}</Text> : null}
+            </View>
+
+            {/* Referral Code Input (Optional) */}
+            <View className="mb-4">
+              <Text className="text-gray-700 font-semibold mb-2">Referral Code <Text className="text-gray-400 font-normal">(optional)</Text></Text>
+              <TextInput
+                className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium"
+                placeholder="Enter referral code if you have one"
+                value={referralCode}
+                onChangeText={(text) => setReferralCode(text.toUpperCase())}
+                autoCapitalize="characters"
+                editable={!isLoading}
+              />
+              <Text className="text-gray-400 text-xs mt-1">Get ৳50 off your first ride!</Text>
             </View>
 
             {/* Password Input */}
@@ -238,7 +447,7 @@ export default function SignupScreen() {
                   <Text className="text-gray-600">{showPassword ? '👁' : '👁‍🗨'}</Text>
                 </TouchableOpacity>
               </View>
-              {errors.password && <Text className="text-red-500 text-sm mt-1">{errors.password}</Text>}
+              {errors.password ? <Text className="text-red-500 text-sm mt-1">{errors.password}</Text> : null}
             </View>
 
             {/* Confirm Password Input */}
@@ -262,7 +471,7 @@ export default function SignupScreen() {
                   <Text className="text-gray-600">{showConfirmPassword ? '👁' : '👁‍🗨'}</Text>
                 </TouchableOpacity>
               </View>
-              {errors.confirmPassword && <Text className="text-red-500 text-sm mt-1">{errors.confirmPassword}</Text>}
+              {errors.confirmPassword ? <Text className="text-red-500 text-sm mt-1">{errors.confirmPassword}</Text> : null}
             </View>
 
             {/* Role Selection */}
@@ -302,63 +511,128 @@ export default function SignupScreen() {
               onPress={handleSignup}
               disabled={isLoading}
             >
-              {isLoading && <ActivityIndicator size="small" color="white" />}
+              {isLoading ? <ActivityIndicator size="small" color="white" /> : null}
               <Text className="text-white font-bold text-center text-lg">Create Account</Text>
             </TouchableOpacity>
 
-<<<<<<< HEAD
-          {/* Sign Up Button */}
-          <TouchableOpacity 
-            className="bg-indigo-600 py-5 rounded-full mt-8 shadow-lg"
-            onPress={handleSignup}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-white text-center text-lg font-bold">
-                Create Account
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Sign In Link */}
-          <View className="flex-row justify-center mt-6">
-            <Text className="text-gray-600 text-base">Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/login')}>
-              <Text className="text-indigo-600 font-bold text-base">Sign In</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Social Login */}
-          <View className="mt-8 mb-8">
-            <View className="flex-row items-center mb-6">
-              <View className="flex-1 h-px bg-gray-300" />
-              <Text className="text-gray-500 mx-4">Or sign up with</Text>
-              <View className="flex-1 h-px bg-gray-300" />
-            </View>
-
-            <View className="flex-row">
-              <TouchableOpacity className="flex-1 bg-gray-100 py-4 rounded-2xl items-center mr-3">
-                <Text className="text-2xl">G</Text>
-              </TouchableOpacity>
-              <TouchableOpacity className="flex-1 bg-gray-100 py-4 rounded-2xl items-center mr-3">
-                <Text className="text-2xl">f</Text>
-              </TouchableOpacity>
-              <TouchableOpacity className="flex-1 bg-gray-100 py-4 rounded-2xl items-center">
-                <Text className="text-2xl">🍎</Text>
-=======
             {/* Login Link */}
             <View className="flex-row justify-center">
               <Text className="text-gray-600">Already have an account? </Text>
               <TouchableOpacity onPress={() => router.push('/login')} disabled={isLoading}>
                 <Text className="text-blue-600 font-bold">Login</Text>
->>>>>>> 1139c3b (feat: add email verification utility and setup scripts)
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Email Verification Modal */}
+      <Modal
+        visible={showVerificationModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View className="flex-1 justify-center items-center bg-black/50 px-6">
+          <View className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            {/* Success Icon */}
+            <View className="items-center mb-4">
+              <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mb-3">
+                <Text className="text-4xl">✉️</Text>
+              </View>
+              <Text className="text-2xl font-bold text-gray-900 text-center">
+                Verify Your Email
+              </Text>
+            </View>
+
+            {/* Message */}
+            <View className="mb-6">
+              <Text className="text-gray-600 text-center mb-3">
+                We've sent a verification link to:
+              </Text>
+              <Text className="text-blue-600 font-semibold text-center mb-3">
+                {registeredEmail}
+              </Text>
+              <Text className="text-gray-500 text-center text-sm mb-4">
+                Please check your inbox and click the link to verify your account. Then tap the button below.
+              </Text>
+            </View>
+
+            {/* Verify Button */}
+            <TouchableOpacity
+              className={`rounded-lg py-3 mb-3 flex-row justify-center items-center gap-2 ${
+                isCheckingVerification ? 'bg-gray-400' : 'bg-blue-600'
+              }`}
+              onPress={handleVerifyOTP}
+              disabled={isCheckingVerification}
+            >
+              {isCheckingVerification ? <ActivityIndicator size="small" color="white" /> : null}
+              <Text className="text-white font-bold text-center text-lg">
+                I've Verified My Email
+              </Text>
+            </TouchableOpacity>
+
+            {/* Resend Link */}
+            <TouchableOpacity
+              className="py-2"
+              onPress={handleResendVerification}
+            >
+              <Text className="text-blue-600 text-center">
+                Didn't receive the email? <Text className="font-bold">Resend</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Alert Modal */}
+      <Modal
+        visible={alertModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View className="flex-1 justify-center items-center bg-black/50 px-6">
+          <View className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            {/* Icon */}
+            <View className="items-center mb-4">
+              <View className={`w-16 h-16 rounded-full items-center justify-center mb-3 ${
+                alertModal.type === 'success' ? 'bg-green-100' : 
+                alertModal.type === 'error' ? 'bg-red-100' : 'bg-blue-100'
+              }`}>
+                <Text className="text-4xl">
+                  {alertModal.type === 'success' ? '✅' : alertModal.type === 'error' ? '❌' : 'ℹ️'}
+                </Text>
+              </View>
+              <Text className="text-2xl font-bold text-gray-900 text-center">
+                {alertModal.title}
+              </Text>
+            </View>
+
+            {/* Message */}
+            <Text className="text-gray-600 text-center mb-6">
+              {alertModal.message}
+            </Text>
+
+            {/* OK Button */}
+            <TouchableOpacity
+              className={`rounded-lg py-3 ${
+                alertModal.type === 'success' ? 'bg-green-600' : 
+                alertModal.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+              }`}
+              onPress={() => {
+                setAlertModal({ ...alertModal, visible: false });
+                // Navigate to main app after success
+                if (alertModal.type === 'success' && alertModal.title === 'Success') {
+                  router.replace('/(tabs)');
+                }
+              }}
+            >
+              <Text className="text-white font-bold text-center text-lg">OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
