@@ -49,8 +49,18 @@ export default function GroupRideScreen() {
       fareRange: '50-80',
       preferences: ['Uber/Pathao', 'CNG'],
     },
-
-
+    {
+      id: '3',
+      from: 'NSU Main Gate',
+      to: 'Gulshan 2',
+      date: 'Dec 16, 2024',
+      time: '9:00 AM',
+      creator: 'Fatima Khan',
+      members: 1,
+      maxSeats: 3,
+      fareRange: '80-120',
+      preferences: ['Uber/Pathao'],
+    },
   ];
 
   return (
@@ -254,7 +264,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 14,
-    color: Colors.darkGray,
+    color: Colors.textLight,
     fontWeight: '600' as const,
   },
   section: {
@@ -304,7 +314,7 @@ const styles = StyleSheet.create({
   rideDate: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: Colors.gray,
+    color: Colors.textLight,
     marginBottom: 2,
   },
   rideTime: {
@@ -356,7 +366,7 @@ const styles = StyleSheet.create({
   fareRangeLabel: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.darkGray,
+    color: Colors.textLight,
   },
   fareRangeValue: {
     fontSize: 18,
@@ -372,7 +382,7 @@ const styles = StyleSheet.create({
   preferencesLabel: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.darkGray,
+    color: Colors.textLight,
     marginBottom: 10,
   },
   preferenceTags: {
@@ -406,7 +416,7 @@ const styles = StyleSheet.create({
   },
   creatorLabel: {
     fontSize: 13,
-    color: Colors.Black,
+    color: Colors.textLight,
     marginBottom: 4,
     fontWeight: '500' as const,
   },

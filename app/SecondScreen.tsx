@@ -4,11 +4,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Car, Users, Shield, TrendingUp } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useEffect, useRef } from 'react';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useApp } from '@/context/AppContext';
 
-export default function Welcome() {
+export default function Onboarding() {
   const router = useRouter();
+  const { setOnboarded } = useApp();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const carAnim = useRef(new Animated.Value(-100)).current;
@@ -34,6 +36,11 @@ export default function Welcome() {
     ]).start();
   }, [fadeAnim, scaleAnim, carAnim]);
 
+  const handleGetStarted = () => {
+    setOnboarded(true);
+    router.push('/login');
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -44,64 +51,69 @@ export default function Welcome() {
       />
 
       <SafeAreaView style={styles.safeArea}>
-        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-          <Animated.View style={[styles.iconContainer, { transform: [{ translateY: carAnim }] }]}>
-            <View style={styles.iconBackground}>
-              <Car size={80} color={Colors.white} strokeWidth={1.5} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+            <Animated.View style={[styles.iconContainer, { transform: [{ translateY: carAnim }] }]}>
+              <View style={styles.iconBackground}>
+                <Car size={80} color={Colors.white} strokeWidth={1.5} />
+              </View>
+            </Animated.View>
+
+            <Text style={styles.title}>RYDEN</Text>
+            <Text style={styles.subtitle}>Community Ride-Sharing for Students</Text>
+
+            <View style={styles.features}>
+              <View style={styles.featureItem}>
+                <View style={styles.featureIcon}>
+                  <Users size={24} color={Colors.primary} />
+                </View>
+                <Text style={styles.featureText}>Verified Students Only</Text>
+              </View>
+
+              <View style={styles.featureItem}>
+                <View style={styles.featureIcon}>
+                  <Shield size={24} color={Colors.primary} />
+                </View>
+                <Text style={styles.featureText}>Safe & Secure Rides</Text>
+              </View>
+
+              <View style={styles.featureItem}>
+                <View style={styles.featureIcon}>
+                  <TrendingUp size={24} color={Colors.primary} />
+                </View>
+                <Text style={styles.featureText}>Earn While You Drive</Text>
+              </View>
             </View>
           </Animated.View>
 
-          <Text style={styles.title}>RYDEN</Text>
-          <Text style={styles.subtitle}>Community Ride-Sharing for Students</Text>
-
-          <View style={styles.features}>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <Users size={24} color={Colors.primary} />
-              </View>
-              <Text style={styles.featureText}>Verified Students Only</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <Shield size={24} color={Colors.primary} />
-              </View>
-              <Text style={styles.featureText}>Safe & Secure Rides</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <TrendingUp size={24} color={Colors.primary} />
-              </View>
-              <Text style={styles.featureText}>Earn While You Drive</Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push('/onboarding')}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[Colors.primary, Colors.secondary]}
-              style={styles.buttonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+          <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleGetStarted}
+              activeOpacity={0.8}
             >
-              <Text style={styles.buttonText}>Get Started</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={[Colors.primary, Colors.secondary]}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.buttonText}>Get Started</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/login')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.secondaryButtonText}>Already have an account? Sign In</Text>
-          </TouchableOpacity>
-        </Animated.View>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleGetStarted}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.secondaryButtonText}>Already have an account? Sign In</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -117,10 +129,12 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justifyContent: 'space-between',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   content: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -183,6 +197,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     paddingHorizontal: 24,
     paddingBottom: 32,
+    paddingTop: 24,
     gap: 16,
   },
   button: {
