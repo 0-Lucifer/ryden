@@ -48,7 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final name = Provider.of<app_auth.AuthProvider>(context).userData?['name'] ?? 'User';
+    final name =
+        Provider.of<app_auth.AuthProvider>(context).userData?['name'] ?? 'User';
 
     return Scaffold(
       body: CustomScrollView(
@@ -57,7 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
             expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: const BoxDecoration(gradient: LinearGradient(colors: [Colors.indigo, Colors.blue])),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.indigo, Colors.blue],
+                  ),
+                ),
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -65,8 +70,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text('Welcome back,', style: TextStyle(color: Colors.white70, fontSize: 18)),
-                        Text(name, style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Welcome back,',
+                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                        ),
+                        Text(
+                          name,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -78,7 +93,15 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
-                decoration: InputDecoration(hintText: 'Where to?', prefixIcon: Icon(Icons.search), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)), filled: true, fillColor: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Where to?',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
                 onTap: () => Navigator.pushNamed(context, '/find_ride'),
               ),
             ),
@@ -86,7 +109,10 @@ class _HomeScreenState extends State<HomeScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Quick Actions', style: Theme.of(context).textTheme.titleLarge),
+              child: Text(
+                'Quick Actions',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -99,47 +125,84 @@ class _HomeScreenState extends State<HomeScreen> {
               shrinkWrap: true,
               physics: NeverScrollableScrollPhysics(),
               children: [
-                _actionCard('Find Ride', Icons.search, () => Navigator.pushNamed(context, '/find_ride')),
-                _actionCard('Offer Ride', Icons.local_taxi, () => Navigator.pushNamed(context, '/offer_ride')),
-                _actionCard('Group Ride', Icons.group, () => Navigator.pushNamed(context, '/create_group_ride')),
-                _actionCard('Ride Requests', Icons.request_page, () => Navigator.pushNamed(context, '/ride_requests')),
+                _actionCard(
+                  'Find Ride',
+                  Icons.search,
+                  () => Navigator.pushNamed(context, '/find_ride'),
+                ),
+                _actionCard(
+                  'Offer Ride',
+                  Icons.local_taxi,
+                  () => Navigator.pushNamed(context, '/offer_ride'),
+                ),
+                _actionCard(
+                  'Group Ride',
+                  Icons.group,
+                  () => Navigator.pushNamed(context, '/create_group_ride'),
+                ),
+                _actionCard(
+                  'Ride Requests',
+                  Icons.request_page,
+                  () => Navigator.pushNamed(context, '/ride_requests'),
+                ),
+                _actionCard(
+                  'Ride History',
+                  Icons.history,
+                  () => Navigator.pushNamed(context, '/ride_history'),
+                ),
               ],
             ),
           ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Upcoming Rides', style: Theme.of(context).textTheme.titleLarge),
+              child: Text(
+                'Upcoming Rides',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
           ),
           _isLoading
-              ? SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()))
+              ? SliverToBoxAdapter(
+                  child: Center(child: CircularProgressIndicator()),
+                )
               : _upcomingRides.isEmpty
-                  ? SliverToBoxAdapter(child: Center(child: Text('No upcoming rides')))
-                  : SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, i) {
-                          final ride = _upcomingRides[i];
-                          return Card(
-                            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: ListTile(
-                              title: Text('${ride['from']} → ${ride['to']}'),
-                              subtitle: Text(ride['time'] ?? ''),
-                              trailing: Text('৳${ride['fare']}'),
-                              onTap: () => Navigator.pushNamed(context, '/active_ride', arguments: {'rideId': ride['rideId']}),
-                            ),
-                          );
-                        },
-                        childCount: _upcomingRides.length,
+              ? SliverToBoxAdapter(
+                  child: Center(child: Text('No upcoming rides')),
+                )
+              : SliverList(
+                  delegate: SliverChildBuilderDelegate((context, i) {
+                    final ride = _upcomingRides[i];
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: ListTile(
+                        title: Text('${ride['from']} → ${ride['to']}'),
+                        subtitle: Text(ride['time'] ?? ''),
+                        trailing: Text('৳${ride['fare']}'),
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/active_ride',
+                          arguments: {'rideId': ride['rideId']},
+                        ),
                       ),
-                    ),
+                    );
+                  }, childCount: _upcomingRides.length),
+                ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Emergency contacted'))),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: EdgeInsets.symmetric(vertical: 20)),
-                child: Text('Emergency & Safety', style: TextStyle(color: Colors.white, fontSize: 18)),
+                onPressed: () => ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Emergency contacted'))),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                ),
+                child: Text(
+                  'Emergency & Safety',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
               ),
             ),
           ),

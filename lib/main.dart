@@ -13,6 +13,7 @@ import 'screens/active_ride_screen.dart';
 import 'screens/splash_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/ride_requests_screen.dart';
+import 'screens/ride_history_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -64,6 +65,7 @@ class MyApp extends StatelessWidget {
           '/create_group_ride': (_) => const CreateGroupRideScreen(),
           '/active_ride': (_) => const ActiveRideScreen(),
           '/ride_requests': (_) => const RideRequestsScreen(),
+          '/ride_history': (_) => const RideHistoryScreen(),
 
           
         },
