@@ -1,31 +1,38 @@
 import { useRouter } from 'expo-router';
 import { View, Text, StyleSheet, ScrollView, TextInput, Alert, Modal } from 'react-native';
-import { MapPin, Clock, Car, Bike, Users, Calendar, X } from 'lucide-react-native';
+import { MapPin, Calendar, Clock, Users, DollarSign, Car, Bike, X, Truck } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useState } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function OfferRide() {
+type VehiclePreference = 'CNG' | 'Bike' | 'Uber/Pathao';
+type GenderPreference = 'Male' | 'Female' | 'Any';
+
+export default function CreateGroupRide() {
   const router = useRouter();
-  const [departure, setDeparture] = useState<string>('');
-  const [destination, setDestination] = useState<string>('');
-  const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('car');
-  const [seats, setSeats] = useState<string>('1');
+  const [from, setFrom] = useState<string>('');
+  const [to, setTo] = useState<string>('');
+  const [fareMin, setFareMin] = useState<string>('');
+  const [fareMax, setFareMax] = useState<string>('');
+  const [maxMembers, setMaxMembers] = useState<string>('4');
+  const [vehiclePreferences, setVehiclePreferences] = useState<VehiclePreference[]>([]);
+  const [genderPreference, setGenderPreference] = useState<GenderPreference>('Any');
   const [departureDateTime, setDepartureDateTime] = useState<string>('');
   const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const [additionalNotes, setAdditionalNotes] = useState<string>('');
 
-  const handleOfferRide = () => {
-    if (!departure || !destination || !departureDateTime) {
-      Alert.alert('Error', 'Please fill all fields');
-      return;
-    }
-    Alert.alert('Success', 'Your ride has been posted!', [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+  const toggleVehiclePreference = (vehicle: VehiclePreference) => {
+    setVehiclePreferences(prev => {
+      if (prev.includes(vehicle)) {
+        return prev.filter(v => v !== vehicle);
+      } else {
+        return [...prev, vehicle];
+      }
+    });
   };
 
   const handleDateTimeConfirm = () => {
@@ -37,13 +44,24 @@ export default function OfferRide() {
     }
   };
 
+  const handleCreateGroupRide = () => {
+    if (!from || !to || !fareMin || !fareMax || !departureDateTime || vehiclePreferences.length === 0) {
+      Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+
+    Alert.alert('Success', 'Your group ride has been created!', [
+      { text: 'OK', onPress: () => router.back() }
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Offer a Ride</Text>
+        <Text style={styles.headerTitle}>Create Group Ride</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -59,10 +77,10 @@ export default function OfferRide() {
             <MapPin size={20} color={Colors.primary} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Departure Location"
+              placeholder="From (e.g., NSU Campus)"
               placeholderTextColor={Colors.gray}
-              value={departure}
-              onChangeText={setDeparture}
+              value={from}
+              onChangeText={setFrom}
             />
           </View>
 
@@ -70,10 +88,10 @@ export default function OfferRide() {
             <MapPin size={20} color={Colors.accent} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Destination"
+              placeholder="To (e.g., Bashundhara City)"
               placeholderTextColor={Colors.gray}
-              value={destination}
-              onChangeText={setDestination}
+              value={to}
+              onChangeText={setTo}
             />
           </View>
 
@@ -90,72 +108,170 @@ export default function OfferRide() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Vehicle Type</Text>
-          <View style={styles.vehicleSelector}>
-            <TouchableOpacity
-              style={[styles.vehicleButton, vehicleType === 'car' && styles.vehicleButtonActive]}
-              onPress={() => setVehicleType('car')}
-              activeOpacity={0.7}
-            >
-              <Car size={32} color={vehicleType === 'car' ? Colors.white : Colors.gray} />
-              <Text style={[styles.vehicleText, vehicleType === 'car' && styles.vehicleTextActive]}>
-                Car
-              </Text>
-            </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Approximate Fare Range (BDT)</Text>
 
-            <TouchableOpacity
-              style={[styles.vehicleButton, vehicleType === 'bike' && styles.vehicleButtonActive]}
-              onPress={() => setVehicleType('bike')}
-              activeOpacity={0.7}
-            >
-              <Bike size={32} color={vehicleType === 'bike' ? Colors.white : Colors.gray} />
-              <Text style={[styles.vehicleText, vehicleType === 'bike' && styles.vehicleTextActive]}>
-                Bike
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.fareContainer}>
+            <View style={styles.fareInputWrapper}>
+              <DollarSign size={18} color={Colors.primary} />
+              <TextInput
+                style={styles.fareInput}
+                placeholder="Min"
+                placeholderTextColor={Colors.gray}
+                value={fareMin}
+                onChangeText={setFareMin}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <Text style={styles.fareSeparator}>-</Text>
+
+            <View style={styles.fareInputWrapper}>
+              <DollarSign size={18} color={Colors.primary} />
+              <TextInput
+                style={styles.fareInput}
+                placeholder="Max"
+                placeholderTextColor={Colors.gray}
+                value={fareMax}
+                onChangeText={setFareMax}
+                keyboardType="numeric"
+              />
+            </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Available Seats</Text>
-          <View style={styles.seatsSelector}>
-            {['1', '2', '3', '4'].map((num) => (
+          <Text style={styles.sectionTitle}>Maximum Members</Text>
+          <View style={styles.membersSelector}>
+            {['2', '3', '4', '5'].map((num) => (
               <TouchableOpacity
                 key={num}
-                style={[styles.seatChip, seats === num && styles.seatChipActive]}
-                onPress={() => setSeats(num)}
+                style={[styles.memberChip, maxMembers === num && styles.memberChipActive]}
+                onPress={() => setMaxMembers(num)}
                 activeOpacity={0.7}
               >
-                <Users size={18} color={seats === num ? Colors.white : Colors.gray} />
-                <Text style={[styles.seatText, seats === num && styles.seatTextActive]}>
-                  {num} {num === '1' ? 'Seat' : 'Seats'}
+                <Users size={18} color={maxMembers === num ? Colors.white : Colors.gray} />
+                <Text style={[styles.memberText, maxMembers === num && styles.memberTextActive]}>
+                  {num}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        <View style={[styles.infoCard, styles.nsuCard]}>
-          <Text style={styles.infoTitle}>NSU Verification</Text>
-          <Text style={styles.infoText}>
-            Only verified NSU students will be able to see and book your ride
-          </Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Vehicle Preferences *</Text>
+          <Text style={styles.sectionSubtitle}>Select one or more</Text>
+
+          <View style={styles.vehicleGrid}>
+            <TouchableOpacity
+              style={[
+                styles.vehicleCard,
+                vehiclePreferences.includes('CNG') && styles.vehicleCardActive
+              ]}
+              onPress={() => toggleVehiclePreference('CNG')}
+              activeOpacity={0.7}
+            >
+              <Truck size={28} color={vehiclePreferences.includes('CNG') ? Colors.white : Colors.gray} />
+              <Text style={[
+                styles.vehicleCardText,
+                vehiclePreferences.includes('CNG') && styles.vehicleCardTextActive
+              ]}>
+                CNG
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.vehicleCard,
+                vehiclePreferences.includes('Bike') && styles.vehicleCardActive
+              ]}
+              onPress={() => toggleVehiclePreference('Bike')}
+              activeOpacity={0.7}
+            >
+              <Bike size={28} color={vehiclePreferences.includes('Bike') ? Colors.white : Colors.gray} />
+              <Text style={[
+                styles.vehicleCardText,
+                vehiclePreferences.includes('Bike') && styles.vehicleCardTextActive
+              ]}>
+                Bike
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.vehicleCard,
+                vehiclePreferences.includes('Uber/Pathao') && styles.vehicleCardActive
+              ]}
+              onPress={() => toggleVehiclePreference('Uber/Pathao')}
+              activeOpacity={0.7}
+            >
+              <Car size={28} color={vehiclePreferences.includes('Uber/Pathao') ? Colors.white : Colors.gray} />
+              <Text style={[
+                styles.vehicleCardText,
+                vehiclePreferences.includes('Uber/Pathao') && styles.vehicleCardTextActive
+              ]}>
+                Uber/Pathao
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Gender Preference</Text>
+
+          <View style={styles.genderSelector}>
+            {(['Male', 'Female', 'Any'] as GenderPreference[]).map((gender) => (
+              <TouchableOpacity
+                key={gender}
+                style={[
+                  styles.genderChip,
+                  genderPreference === gender && styles.genderChipActive
+                ]}
+                onPress={() => setGenderPreference(gender)}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.genderText,
+                  genderPreference === gender && styles.genderTextActive
+                ]}>
+                  {gender}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Additional Notes (Optional)</Text>
+
+          <TextInput
+            style={styles.notesInput}
+            placeholder="Add any additional information..."
+            placeholderTextColor={Colors.gray}
+            value={additionalNotes}
+            onChangeText={setAdditionalNotes}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+        </View>
+
+
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.offerButton}
-          onPress={handleOfferRide}
+          style={styles.createButton}
+          onPress={handleCreateGroupRide}
           activeOpacity={0.8}
         >
           <LinearGradient
             colors={[Colors.primary, Colors.secondary]}
-            style={styles.offerButtonGradient}
+            style={styles.createButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.offerButtonText}>Offer Ride</Text>
+            <Text style={styles.createButtonText}>Create Group Ride</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -252,13 +368,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700' as const,
     color: Colors.text,
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: Colors.textLight,
+    marginBottom: 12,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -266,7 +389,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.lightGray,
     borderRadius: 12,
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 12,
     height: 56,
   },
   inputIcon: {
@@ -280,45 +403,36 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: Colors.gray,
   },
-  vehicleSelector: {
+  fareContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  vehicleButton: {
+  fareInputWrapper: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.lightGray,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 56,
+    gap: 8,
   },
-  vehicleButtonActive: {
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+  fareInput: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.text,
   },
-  vehicleText: {
-    fontSize: 16,
+  fareSeparator: {
+    fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.gray,
   },
-  vehicleTextActive: {
-    color: Colors.white,
-  },
-  seatsSelector: {
+  membersSelector: {
     flexDirection: 'row',
     gap: 12,
   },
-  seatChip: {
+  memberChip: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -326,28 +440,77 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.lightGray,
     paddingVertical: 16,
     borderRadius: 12,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: 6,
   },
-  seatChipActive: {
+  memberChipActive: {
     backgroundColor: Colors.secondary,
-    shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  seatText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.black,
+  memberText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.gray,
   },
-  seatTextActive: {
+  memberTextActive: {
     color: Colors.white,
+  },
+  vehicleGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  vehicleCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.lightGray,
+    borderRadius: 16,
+    paddingVertical: 20,
+    gap: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  vehicleCardActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  vehicleCardText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: Colors.gray,
+  },
+  vehicleCardTextActive: {
+    color: Colors.white,
+  },
+  genderSelector: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderChip: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: Colors.lightGray,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  genderChipActive: {
+    backgroundColor: Colors.secondary,
+  },
+  genderText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.gray,
+  },
+  genderTextActive: {
+    color: Colors.white,
+  },
+  notesInput: {
+    backgroundColor: Colors.lightGray,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    fontSize: 15,
+    color: Colors.text,
+    minHeight: 100,
   },
   infoCard: {
     marginHorizontal: 24,
@@ -356,14 +519,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.backText,
+    borderLeftColor: Colors.primary,
   },
-  nsuCard: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+  verificationCard: {
+    ...Colors.shadow,
   },
   infoTitle: {
     fontSize: 16,
@@ -372,9 +531,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   infoText: {
-    fontSize: 12,
-    color: Colors.Black,
-    lineHeight: 15,
+    fontSize: 14,
+    color: Colors.textLight,
+    lineHeight: 20,
   },
   footer: {
     paddingHorizontal: 24,
@@ -383,20 +542,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
-  offerButton: {
+  createButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Colors.shadow,
   },
-  offerButtonGradient: {
+  createButtonGradient: {
     paddingVertical: 18,
     alignItems: 'center',
   },
-  offerButtonText: {
+  createButtonText: {
     fontSize: 17,
     fontWeight: '700' as const,
     color: Colors.white,

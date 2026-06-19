@@ -1,48 +1,45 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { FontAwesome5 } from '@expo/vector-icons';
+import Colors from '@/constants/colors';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#10b981',
-        tabBarInactiveTintColor: '#9ca3af',
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.text,
         tabBarStyle: {
-          backgroundColor: '#ffffff',
-          borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
-          paddingTop: 8,
-          paddingBottom: 8,
-          height: 65,
+          backgroundColor: Colors.white,
+          borderTopColor: Colors.lightGray,
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Find Ride',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="car.fill" color={color} />,
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome5 name="compass" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="notifications"
         options={{
-          title: 'My Trips',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="clock.fill" color={color} />,
+          title: 'Notifications',
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome5 name="bell" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle.fill" color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome5 name="user-alt" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

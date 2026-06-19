@@ -1,249 +1,348 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Mail, Phone, Lock, Eye, EyeOff } from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Colors from '@/constants/colors';
+import Spacing from '@/constants/spacing';
+import Typography from '@/constants/typography';
+import { useApp } from '@/context/AppContext';
+import { currentUser } from '@/mocks/users';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
+  const { login } = useApp();
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const emailInputRef = useRef<any>(null);
-  const passwordInputRef = useRef<any>(null);
-  const [errors, setErrors] = useState({ email: '', password: '' });
-  const [loading, setLoading] = useState(false);
-  const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [errorModalMessage, setErrorModalMessage] = useState('');
-
-  const validateForm = (): boolean => {
-    let valid = true;
-    const newErrors = { email: '', password: '' };
-
-    // Email validation
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-      valid = false;
-    } else if (!email.includes('@')) {
-      newErrors.email = 'Please enter a valid email';
-      valid = false;
-    }
-
-    // Password validation
-    if (!password) {
-      newErrors.password = 'Password is required';
-      valid = false;
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-      valid = false;
-    }
-
-    setErrors(newErrors);
-    return valid;
-  };
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!validateForm()) return;
+    setIsLoading(true);
 
-    setLoading(true);
-    try {
-      if (errorModalVisible) {
-        // Prevent navigation while modal is open
-        return;
-      }
-      await login({ email: email.trim(), password });
-      // Navigation will be handled automatically after successful login
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      console.error('[Login] Error:', error);
-      let errorMessage = error?.message || 'Login failed. Please check your credentials and try again.';
-      // Customize Firebase invalid credential error
-      
-        // Map Firebase user-not-found -> inline email validation
-        if (
-          error?.code === 'auth/user-not-found' ||
-          errorMessage.includes('user-not-found') ||
-          error?.status === 404 ||
-          error?.data?.needsRegistration === true ||
-          (error?.data && ((error.data.error || '').toString().toLowerCase().includes('user not found')))
-        ) {
-          setErrorModalVisible(false);
-          setErrors((prev) => ({ ...prev, email: 'No account found with that email.' }));
-          // focus the email field on web/mobile
-          try { emailInputRef.current?.focus?.(); } catch { /* ignore */ }
-          return;
-        }
-
-        // Map wrong-password -> inline password validation
-        const normalizedMessage = (errorMessage || '').toLowerCase();
-        const normalizedCode = (error?.code || '').toLowerCase();
-        const isWrongPassword = (
-          normalizedCode === 'auth/wrong-password' ||
-          normalizedMessage.includes('wrong-password') ||
-          normalizedMessage.includes('wrong password') ||
-          normalizedMessage.includes('invalid password') ||
-          normalizedMessage.includes('password is invalid') ||
-          (error?.status === 401 && normalizedMessage.includes('password')) ||
-          (error?.data && (error.data?.errors?.password || '').toString().toLowerCase().includes('password'))
-        );
-        if (isWrongPassword) {
-          setErrorModalVisible(false);
-          setErrors((prev) => ({ ...prev, password: 'Password is incorrect.' }));
-          try { passwordInputRef.current?.focus?.(); } catch { /* ignore */ }
-          return;
-        }
-
-        // Old mapping for invalid credential -> show modal
-        if (error?.code === 'auth/invalid-credential' || errorMessage.includes('auth/invalid-credential')) {
-          errorMessage = 'Invalid email or password. Please try again.';
-        }
-      console.log('[Login] Showing error modal:', errorMessage);
-      setErrorModalMessage(errorMessage);
-      setErrorModalVisible(true);
-    } finally {
-      if (!loading) setLoading(false);
-    }
+    setTimeout(async () => {
+      await login(currentUser);
+      setIsLoading(false);
+      router.replace('/(tabs)/index');
+    }, 1000);
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-emerald-600">
-      <StatusBar style="light" />
-      {/* Error Modal */}
-      <Modal
-        visible={errorModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setErrorModalVisible(false)}
-        style={{ zIndex: 9999 }}
-      >
-        <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999 }}>
-          <ThemedView style={{ backgroundColor: 'white', padding: 24, borderRadius: 16, minWidth: 280, alignItems: 'center', elevation: 10 }}>
-            <ThemedText type="title" style={{ color: '#d32f2f', marginBottom: 12 }}>Login Failed</ThemedText>
-            <ThemedText style={{ fontSize: 16, marginBottom: 24, color: '#333', textAlign: 'center' }}>{errorModalMessage}</ThemedText>
-            <TouchableOpacity
-              style={{ backgroundColor: '#10b981', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24 }}
-              onPress={() => setErrorModalVisible(false)}
-            >
-              <ThemedText type="link" style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>OK</ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
-        </ThemedView>
-      </Modal>
-      <KeyboardAvoidingView 
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+        style={styles.keyboardView}
       >
-        <View className="flex-1 px-6 py-8">
-          {/* Logo Section */}
-          <View className="items-center mb-8">
-            <View className="w-32 h-32 bg-white rounded-3xl items-center justify-center mb-6">
-              <Text className="text-6xl">🚗</Text>
-              <View className="absolute top-2 right-2">
-                <Text className="text-2xl">✨</Text>
-              </View>
-            </View>
-            <Text className="text-white text-4xl font-bold mb-2">Ryden</Text>
-            <Text className="text-emerald-100 text-base">Welcome back to your campus community</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to continue</Text>
           </View>
 
-          {/* Form Card */}
-          <View className="bg-white rounded-3xl px-6 py-8 flex-1">
-            <Text className="text-center text-emerald-600 text-2xl font-bold mb-2">Log in</Text>
-            <Text className="text-center text-gray-600 text-sm mb-6">Enter your credentials to continue</Text>
-            <View className="mb-5">
-              <Text className="text-gray-700 mb-2 font-medium text-sm">NSU Email or Student ID</Text>
-              <View className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center ${errors.email ? 'border-red-500' : 'border-gray-200'}`}>
-                <Text className="text-gray-400 mr-2">✉️</Text>
+          <View style={styles.methodToggle}>
+            <TouchableOpacity
+              style={[
+                styles.methodButton,
+                loginMethod === 'email' && styles.methodButtonActive,
+              ]}
+              onPress={() => setLoginMethod('email')}
+            >
+              <Mail
+                size={20}
+                color={loginMethod === 'email' ? Colors.white : Colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.methodText,
+                  loginMethod === 'email' && styles.methodTextActive,
+                ]}
+              >
+                Email
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.methodButton,
+                loginMethod === 'phone' && styles.methodButtonActive,
+              ]}
+              onPress={() => setLoginMethod('phone')}
+            >
+              <Phone
+                size={20}
+                color={loginMethod === 'phone' ? Colors.white : Colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.methodText,
+                  loginMethod === 'phone' && styles.methodTextActive,
+                ]}
+              >
+                Phone
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.form}>
+            {loginMethod === 'email' ? (
+              <View style={styles.inputContainer}>
+                <View style={styles.inputIcon}>
+                  <Mail size={20} color={Colors.textSecondary} />
+                </View>
                 <TextInput
-                  className="flex-1 text-base"
-                  placeholder="student@northsouth.edu"
-                  placeholderTextColor="#9ca3af"
+                  style={styles.input}
+                  placeholder="University email (.edu.bd)"
+                  placeholderTextColor={Colors.textTertiary}
+                  value={email}
+                  onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  value={email}
-                  ref={emailInputRef}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    setErrors({ ...errors, email: '' });
-                  }}
-                  editable={!isLoading}
+                  autoComplete="email"
                 />
               </View>
-              {errors.email ? <Text className="text-red-500 text-xs mt-1">{errors.email}</Text> : null}
-            </View>
-
-            <View className="mb-4">
-              <Text className="text-gray-700 mb-2 font-medium text-sm">Password</Text>
-              <View className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center ${errors.password ? 'border-red-500' : 'border-gray-200'}`}>
-                <Text className="text-gray-400 mr-2">🔒</Text>
+            ) : (
+              <View style={styles.inputContainer}>
+                <View style={styles.inputIcon}>
+                  <Phone size={20} color={Colors.textSecondary} />
+                </View>
                 <TextInput
-                  className="flex-1 text-base"
-                  placeholder="Enter your password"
-                  placeholderTextColor="#9ca3af"
-                  secureTextEntry
-                  value={password}
-                  ref={passwordInputRef}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    setErrors({ ...errors, password: '' });
-                  }}
-                  editable={!isLoading}
+                  style={styles.input}
+                  placeholder="+880 1XXX-XXXXXX"
+                  placeholderTextColor={Colors.textTertiary}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
                 />
               </View>
-              {errors.password ? <Text className="text-red-500 text-xs mt-1">{errors.password}</Text> : null}
+            )}
+
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIcon}>
+                <Lock size={20} color={Colors.textSecondary} />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor={Colors.textTertiary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoComplete="password"
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff size={20} color={Colors.textSecondary} />
+                ) : (
+                  <Eye size={20} color={Colors.textSecondary} />
+                )}
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity 
-              className={`py-4 rounded-full mb-4 ${loading ? 'bg-emerald-400' : 'bg-emerald-600'}`}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text className="text-white text-center text-base font-bold">Log In →</Text>
-              )}
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
 
-            {/* Forgot Password Link */}
-            <View className="mb-4 flex-row justify-end">
-              <TouchableOpacity onPress={() => router.push('/forgot-password')} disabled={isLoading}>
-                <Text className="text-emerald-600 font-semibold text-sm">Forgot Password?</Text>
-              </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              <LinearGradient
+                colors={[Colors.gradient.primary[0], Colors.gradient.primary[1]]}
+                style={styles.loginGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.loginButtonText}>
+                  {isLoading ? 'Signing in...' : 'Sign In'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
             </View>
 
-            {/* Divider */}
-            <View className="flex-row items-center my-4">
-              <View className="flex-1 h-px bg-gray-200" />
-              <Text className="px-3 text-gray-500 text-sm">Or continue with</Text>
-              <View className="flex-1 h-px bg-gray-200" />
-            </View>
+            <TouchableOpacity style={styles.googleButton}>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
 
-            {/* Social Login */}
-            <View className="flex-row">
-              <TouchableOpacity className="flex-1 bg-white border border-gray-200 py-3 rounded-xl items-center mr-2">
-                <Text className="text-xl">G</Text>
-                <Text className="text-gray-700 text-xs font-medium mt-1">Google</Text>
-              </TouchableOpacity>
-              <TouchableOpacity className="flex-1 bg-white border border-gray-200 py-3 rounded-xl items-center">
-                <Text className="text-xl">f</Text>
-                <Text className="text-gray-700 text-xs font-medium mt-1">Facebook</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Sign Up Link */}
-            <View className="flex-row justify-center mt-6">
-              <Text className="text-gray-600">Don't have an account? </Text>
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>Don&apos;t have an account? </Text>
               <TouchableOpacity onPress={() => router.push('/signup')}>
-                <Text className="text-emerald-600 font-bold">Sign Up</Text>
+                <Text style={styles.signupLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: Spacing.xl,
+  },
+  header: {
+    marginBottom: Spacing.xxxl,
+    marginTop: Spacing.lg,
+  },
+  title: {
+    ...Typography.h1,
+    fontWeight: '700' as const,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    ...Typography.body1,
+    color: Colors.textSecondary,
+  },
+  methodToggle: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: Spacing.xs,
+    marginBottom: Spacing.xxl,
+    gap: Spacing.xs,
+  },
+  methodButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    borderRadius: 10,
+    gap: Spacing.sm,
+  },
+  methodButtonActive: {
+    backgroundColor: Colors.primary,
+  },
+  methodText: {
+    ...Typography.button,
+    fontSize: 15,
+    color: Colors.textSecondary,
+  },
+  methodTextActive: {
+    color: Colors.white,
+  },
+  form: {
+    gap: Spacing.base,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.borderLight,
+    paddingHorizontal: Spacing.base,
+    height: 56,
+  },
+  inputIcon: {
+    marginRight: Spacing.md,
+  },
+  input: {
+    flex: 1,
+    ...Typography.body1,
+    color: Colors.textPrimary,
+  },
+  eyeIcon: {
+    padding: Spacing.sm,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: Spacing.xs,
+  },
+  forgotPasswordText: {
+    ...Typography.body2,
+    color: Colors.primary,
+    fontWeight: '600' as const,
+  },
+  loginButton: {
+    marginTop: Spacing.lg,
+  },
+  loginGradient: {
+    paddingVertical: Spacing.base,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+  },
+  loginButtonText: {
+    ...Typography.button,
+    color: Colors.white,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.xl,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    ...Typography.body2,
+    color: Colors.textTertiary,
+    marginHorizontal: Spacing.base,
+  },
+  googleButton: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingVertical: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderWidth: 2,
+    borderColor: Colors.border,
+  },
+  googleButtonText: {
+    ...Typography.button,
+    color: Colors.textPrimary,
+  },
+  signupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: Spacing.xl,
+  },
+  signupText: {
+    ...Typography.body1,
+    color: Colors.textSecondary,
+  },
+  signupLink: {
+    ...Typography.body1,
+    color: Colors.primary,
+    fontWeight: '600' as const,
+  },
+});

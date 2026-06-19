@@ -33,7 +33,7 @@ export default function Home() {
       title: 'Group Rides',
       icon: <Users size={28} color={Colors.white} strokeWidth={2} />,
       color: Colors.accent,
-      route: '/group-ride',
+      route: '/driver-requests',
     },
   ];
 

@@ -1,224 +1,552 @@
-import { useRide } from '@/context/RideContext';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import {
+  CheckCircle,
+  Clock,
+  Car,
+  Phone,
+  MessageCircle,
+  Star,
+  Navigation,
+  User,
+} from 'lucide-react-native';
+import React, { useEffect, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Animated,
+  StatusBar,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type PaymentMethodType = 'cash' | 'bkash' | 'nagad' | 'wallet';
+export default function BookingConfirmationScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{
+    driverName: string;
+    vehicleModel: string;
+    fare: string;
+    eta: string;
+    rating: string;
+    licensePlate: string;
+  }>();
 
-const PAYMENT_METHODS: { id: PaymentMethodType; name: string; icon: string; description: string }[] = [
-  { id: 'cash', name: 'Cash', icon: '💵', description: 'Pay driver directly' },
-  { id: 'bkash', name: 'bKash', icon: '📱', description: '**** 1234' },
-  { id: 'nagad', name: 'Nagad', icon: '📱', description: '**** 5678' },
-  { id: 'wallet', name: 'Ryden Wallet', icon: '💰', description: 'Balance: ৳500' },
-];
+  const scaleAnim = useMemo(() => new Animated.Value(0), []);
+  const slideAnim = useMemo(() => new Animated.Value(50), []);
+  const fadeInAnim = useMemo(() => new Animated.Value(0), []);
+  const pulseAnim = useMemo(() => new Animated.Value(1), []);
 
-export default function BookingConfirmScreen() {
-  const params = useLocalSearchParams<{ rideId: string; data?: string }>();
-  const { bookRide, isLoadingRide } = useRide();
-  
-  const [seats, setSeats] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('cash');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeInAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  // Parse ride data (handle URL encoding)
-  const ride = params.data ? JSON.parse(decodeURIComponent(params.data)) : null;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [scaleAnim, slideAnim, fadeInAnim, pulseAnim]);
 
-  if (!ride) {
-    return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <Text className="text-gray-500">Ride data not found</Text>
-        <TouchableOpacity onPress={() => router.back()} className="mt-4">
-          <Text className="text-emerald-600">Go Back</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  const pricePerSeat = ride.pricing?.pricePerSeat || 100;
-  const availableSeats = ride.seats?.available || 3;
-  const subtotal = pricePerSeat * seats;
-  const serviceFee = Math.round(subtotal * 0.05); // 5% service fee
-  const total = subtotal + serviceFee;
-
-  const handleConfirmBooking = async () => {
-    if (!agreedToTerms) {
-      Alert.alert('Terms Required', 'Please agree to the terms and conditions');
-      return;
-    }
-
-    try {
-      const offerId = params.rideId || ride.id;
-      const result = await bookRide(offerId, {
-        seats,
-        paymentMethod,
-        pickupNote: `From ${ride.route?.from || 'Pickup'} to ${ride.route?.to || 'Dropoff'}`,
-      });
-
-      Alert.alert(
-        'Booking Confirmed! 🎉',
-        `Your ride with ${ride.driver?.name || 'the driver'} is confirmed.\n\nBooking ID: ${result.bookingId || 'BK' + Date.now()}`,
-        [
-          {
-            text: 'View My Rides',
-            onPress: () => router.replace('/(tabs)/explore'),
-          },
-        ]
-      );
-    } catch (error: any) {
-      // Fallback for demo
-      Alert.alert(
-        'Booking Confirmed! 🎉',
-        `Your ride with ${ride.driver?.name || 'the driver'} is confirmed.\n\nBooking ID: BK${Date.now().toString().slice(-8)}`,
-        [
-          {
-            text: 'View My Rides',
-            onPress: () => router.replace('/(tabs)/explore'),
-          },
-        ]
-      );
-    }
+  const handleDone = () => {
+    router.back();
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="bg-white px-4 py-3 flex-row items-center border-b border-gray-200">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4">
-          <Ionicons name="arrow-back" size={24} color="#374151" />
-        </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Confirm Booking</Text>
-      </View>
-
-      <ScrollView className="flex-1">
-        {/* Ride Summary */}
-        <View className="bg-white m-4 rounded-2xl p-4 shadow-sm">
-          <View className="flex-row items-center mb-4">
-            <View className="w-12 h-12 bg-emerald-100 rounded-full items-center justify-center">
-              <Text className="text-xl">{ride.driver?.name?.charAt(0) || '?'}</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={[
+              styles.successSection,
+              {
+                opacity: fadeInAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            <View style={styles.successIconContainer}>
+              <Animated.View
+                style={[
+                  styles.pulseCircle,
+                  {
+                    transform: [{ scale: pulseAnim }],
+                  },
+                ]}
+              />
+              <CheckCircle size={64} color="#FFFFFF" strokeWidth={3} />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-gray-900 font-semibold">{ride.driver?.name || 'Driver'}</Text>
-              <Text className="text-gray-500 text-sm">⭐ {ride.driver?.rating || '4.5'} • {ride.vehicle?.make} {ride.vehicle?.model}</Text>
-            </View>
-          </View>
+            <Text style={styles.successTitle}>Booking Confirmed!</Text>
+            <Text style={styles.successSubtitle}>Your driver is on the way</Text>
+          </Animated.View>
 
-          <View className="border-t border-gray-100 pt-3">
-            <View className="flex-row items-center mb-2">
-              <View className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
-              <Text className="text-gray-700 flex-1">{ride.route?.from || 'Pickup'}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className="w-2 h-2 rounded-full bg-red-500 mr-2" />
-              <Text className="text-gray-700 flex-1">{ride.route?.to || 'Destination'}</Text>
-            </View>
-          </View>
-
-          <View className="flex-row justify-between mt-3 pt-3 border-t border-gray-100">
-            <Text className="text-gray-500">{ride.schedule?.date || 'Today'}</Text>
-            <Text className="text-gray-500">{ride.schedule?.time || '08:30 AM'}</Text>
-            <Text className="text-gray-500">~{ride.route?.duration || 45} min</Text>
-          </View>
-        </View>
-
-        {/* Seat Selection */}
-        <View className="bg-white mx-4 rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="text-gray-900 font-semibold mb-3">Number of Seats</Text>
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity
-              onPress={() => setSeats(Math.max(1, seats - 1))}
-              className="w-12 h-12 bg-gray-100 rounded-xl items-center justify-center"
-            >
-              <Ionicons name="remove" size={24} color="#374151" />
-            </TouchableOpacity>
-            <View className="items-center">
-              <Text className="text-3xl font-bold text-gray-900">{seats}</Text>
-              <Text className="text-gray-500 text-sm">seat{seats > 1 ? 's' : ''}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setSeats(Math.min(availableSeats, seats + 1))}
-              className="w-12 h-12 bg-emerald-100 rounded-xl items-center justify-center"
-            >
-              <Ionicons name="add" size={24} color="#059669" />
-            </TouchableOpacity>
-          </View>
-          <Text className="text-gray-400 text-center text-sm mt-2">{availableSeats} seats available</Text>
-        </View>
-
-        {/* Payment Method */}
-        <View className="bg-white mx-4 rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="text-gray-900 font-semibold mb-3">Payment Method</Text>
-          {PAYMENT_METHODS.map((method) => (
-            <TouchableOpacity
-              key={method.id}
-              onPress={() => setPaymentMethod(method.id)}
-              className={`flex-row items-center p-3 rounded-xl mb-2 ${
-                paymentMethod === method.id ? 'bg-emerald-50 border-2 border-emerald-500' : 'bg-gray-50 border-2 border-transparent'
-              }`}
-            >
-              <Text className="text-2xl mr-3">{method.icon}</Text>
-              <View className="flex-1">
-                <Text className="text-gray-900 font-medium">{method.name}</Text>
-                <Text className="text-gray-500 text-sm">{method.description}</Text>
+          <Animated.View
+            style={[
+              styles.driverCard,
+              {
+                opacity: fadeInAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <View style={styles.driverHeader}>
+              <View style={styles.driverAvatarSection}>
+                <View style={styles.driverAvatar}>
+                  <User size={36} color="#0891B2" strokeWidth={2.5} />
+                </View>
+                <View style={styles.driverInfo}>
+                  <Text style={styles.driverName}>{params.driverName}</Text>
+                  <View style={styles.driverRatingRow}>
+                    <Star size={14} color="#F59E0B" fill="#F59E0B" />
+                    <Text style={styles.driverRating}>{params.rating}</Text>
+                    <View style={styles.separator} />
+                    <Text style={styles.driverPlate}>{params.licensePlate}</Text>
+                  </View>
+                </View>
               </View>
-              {paymentMethod === method.id && (
-                <Ionicons name="checkmark-circle" size={24} color="#059669" />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+              <View style={styles.etaIndicator}>
+                <Clock size={16} color="#FFFFFF" strokeWidth={2.5} />
+                <Text style={styles.etaText}>{params.eta} min</Text>
+              </View>
+            </View>
 
-        {/* Price Breakdown */}
-        <View className="bg-white mx-4 rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="text-gray-900 font-semibold mb-3">Price Breakdown</Text>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-gray-600">{seats} seat{seats > 1 ? 's' : ''} × ৳{pricePerSeat}</Text>
-            <Text className="text-gray-900">৳{subtotal}</Text>
-          </View>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-gray-600">Service fee</Text>
-            <Text className="text-gray-900">৳{serviceFee}</Text>
-          </View>
-          <View className="flex-row justify-between pt-2 border-t border-gray-200">
-            <Text className="text-gray-900 font-semibold">Total</Text>
-            <Text className="text-emerald-600 font-bold text-lg">৳{total}</Text>
-          </View>
-        </View>
+            <View style={styles.vehicleSection}>
+              <View style={styles.vehicleIconWrapper}>
+                <Car size={20} color="#0891B2" strokeWidth={2} />
+              </View>
+              <Text style={styles.vehicleText}>{params.vehicleModel}</Text>
+            </View>
 
-        {/* Terms */}
-        <TouchableOpacity
-          onPress={() => setAgreedToTerms(!agreedToTerms)}
-          className="flex-row items-center mx-4 mb-4"
-        >
-          <View className={`w-6 h-6 rounded border-2 items-center justify-center mr-3 ${
-            agreedToTerms ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'
-          }`}>
-            {agreedToTerms && <Ionicons name="checkmark" size={16} color="white" />}
-          </View>
-          <Text className="text-gray-600 flex-1">
-            I agree to the <Text className="text-emerald-600">Terms of Service</Text> and <Text className="text-emerald-600">Cancellation Policy</Text>
-          </Text>
-        </TouchableOpacity>
+            <View style={styles.contactButtons}>
+              <TouchableOpacity style={styles.contactButton} activeOpacity={0.7}>
+                <Phone size={20} color="#0891B2" strokeWidth={2.5} />
+                <Text style={styles.contactButtonText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.contactButton} activeOpacity={0.7}>
+                <MessageCircle size={20} color="#0891B2" strokeWidth={2.5} />
+                <Text style={styles.contactButtonText}>Message</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
 
-        {/* Spacing for bottom button */}
-        <View className="h-24" />
-      </ScrollView>
+          <Animated.View
+            style={[
+              styles.tripDetailsCard,
+              {
+                opacity: fadeInAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <Text style={styles.sectionTitle}>Trip Details</Text>
 
-      {/* Bottom Confirm Bar */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
-        <TouchableOpacity
-          onPress={handleConfirmBooking}
-          disabled={isLoadingRide || !agreedToTerms}
-          className={`py-4 rounded-xl items-center ${
-            agreedToTerms ? 'bg-emerald-600' : 'bg-gray-300'
-          }`}
-        >
-          <Text className="text-white font-semibold text-lg">
-            {isLoadingRide ? 'Booking...' : `Confirm & Pay ৳${total}`}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+            <View style={styles.routeContainer}>
+              <View style={styles.routeLineContainer}>
+                <View style={styles.routeDotStart} />
+                <View style={styles.routeLine} />
+                <View style={styles.routeDotEnd} />
+              </View>
+              <View style={styles.routeTextContainer}>
+                <View style={styles.routeLocation}>
+                  <Text style={styles.routeLabel}>Pickup</Text>
+                  <Text style={styles.routeAddress}>NSU Campus Gate</Text>
+                </View>
+                <View style={styles.routeLocation}>
+                  <Text style={styles.routeLabel}>Drop-off</Text>
+                  <Text style={styles.routeAddress}>Bashundhara City</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.fareSection}>
+              <View style={styles.fareRow}>
+                <Text style={styles.fareLabel}>Total Fare</Text>
+                <View style={styles.fareAmountContainer}>
+                  <Text style={styles.currencySymbol}>৳</Text>
+                  <Text style={styles.fareAmount}>{params.fare}</Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.trackingCard,
+              {
+                opacity: fadeInAnim,
+              },
+            ]}
+          >
+            <Navigation size={20} color="#0891B2" strokeWidth={2.5} />
+            <Text style={styles.trackingText}>Track your driver in real-time</Text>
+          </Animated.View>
+
+          <TouchableOpacity
+            style={styles.doneButton}
+            onPress={handleDone}
+            activeOpacity={0.85}
+            testID="done-button"
+          >
+            <Text style={styles.doneButtonText}>Back to Home</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0891B2',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 32,
+  },
+  successSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  successIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    position: 'relative',
+  },
+  pulseCircle: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  successTitle: {
+    fontSize: 32,
+    fontWeight: '900' as const,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.8,
+  },
+  successSubtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.9,
+    fontWeight: '500' as const,
+  },
+  driverCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  driverHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  driverAvatarSection: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  driverAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#0891B2',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  driverInfo: {
+    flex: 1,
+    marginLeft: 14,
+    justifyContent: 'center',
+  },
+  driverName: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: '#0F172A',
+    letterSpacing: -0.4,
+    marginBottom: 6,
+  },
+  driverRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  driverRating: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#92400E',
+  },
+  separator: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#CBD5E1',
+  },
+  driverPlate: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600' as const,
+  },
+  etaIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  etaText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '800' as const,
+  },
+  vehicleSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  vehicleIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  vehicleText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  contactButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  contactButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#E0F2FE',
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  contactButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#0891B2',
+  },
+  tripDetailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    color: '#0F172A',
+    letterSpacing: -0.4,
+    marginBottom: 20,
+  },
+  routeContainer: {
+    flexDirection: 'row',
+    marginBottom: 24,
+  },
+  routeLineContainer: {
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  routeDotStart: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#0891B2',
+    borderWidth: 3,
+    borderColor: '#E0F2FE',
+  },
+  routeLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#CBD5E1',
+    marginVertical: 4,
+  },
+  routeDotEnd: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 3,
+    borderColor: '#D1FAE5',
+  },
+  routeTextContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  routeLocation: {
+    paddingVertical: 4,
+  },
+  routeLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  routeAddress: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  fareSection: {
+    backgroundColor: '#F8FAFC',
+    padding: 18,
+    borderRadius: 16,
+  },
+  fareRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  fareLabel: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '600' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  fareAmountContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#0F172A',
+    marginRight: 2,
+  },
+  fareAmount: {
+    fontSize: 28,
+    fontWeight: '900' as const,
+    color: '#0891B2',
+    letterSpacing: -0.8,
+  },
+  trackingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  trackingText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '600' as const,
+  },
+  doneButton: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  doneButtonText: {
+    fontSize: 17,
+    fontWeight: '800' as const,
+    color: '#0891B2',
+    letterSpacing: 0.3,
+  },
+});
